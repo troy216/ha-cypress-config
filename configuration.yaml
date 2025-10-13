@@ -130,3 +130,5 @@ zha_toolkit:
 # Shell commands for git operations
 shell_command:
   git_push_config: /config/shell/git-push-config.sh
+
+# GitHub→HA test: This comment was added from local dev machine to verify pull sync
