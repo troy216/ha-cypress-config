@@ -125,10 +125,7 @@ logger:
     homeassistant.components.bluetooth_le_tracker: debug
 
 zha_toolkit:
-# HA→GitHub test: Mon Oct 13 12:34:46 MDT 2025
 
 # Shell commands for git operations
 shell_command:
   git_push_config: /config/shell/git-push-config.sh
-
-# GitHub→HA test: This comment was added from local dev machine to verify pull sync
