@@ -125,3 +125,4 @@ logger:
     homeassistant.components.bluetooth_le_tracker: debug
 
 zha_toolkit:
+# HA→GitHub test: Mon Oct 13 12:34:46 MDT 2025
