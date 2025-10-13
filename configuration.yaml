@@ -125,5 +125,3 @@ logger:
     homeassistant.components.bluetooth_le_tracker: debug
 
 zha_toolkit:
-
-# Test comment: Verify GitHub → HA sync works correctly
