@@ -239,3 +239,14 @@
       - '21:00:00'
       - '13:30:00'
       watering_duration: 10
+
+- id: git_push_daily
+  alias: "Git: Daily Config Backup to GitHub"
+  description: "Automatically backup HA configuration to GitHub once per day"
+  trigger:
+    - platform: time
+      at: "03:00:00"
+  condition: []
+  action:
+    - service: shell_command.git_push_config
+  mode: single
