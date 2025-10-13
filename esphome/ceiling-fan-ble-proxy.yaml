@@ -1,0 +1,45 @@
+esphome:
+  name: "ceiling-fan-ble-proxy"
+  friendly_name: Ceiling Fan BLE Proxy
+  min_version: 2025.5.0
+  name_add_mac_suffix: false
+
+esp32:
+  board: esp32-c6-devkitm-1
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+# Allow Over-The-Air updates
+ota:
+- platform: esphome
+
+# Enable web UI
+web_server:
+  port: 80
+
+wifi:
+  ssid: "Anderson Family"
+  password: "dmisa&sid"
+  
+# Enable Bluetooth scanning
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 20ms
+    window: 20ms
+    active: true
+
+# Enable Bluetooth Proxy
+bluetooth_proxy:
+  active: true
+
+ble_adv_proxy:
+  use_max_tx_power: true # remove in case of build issues
+
+external_components:
+  source: github://NicoIIT/esphome-ble_adv_proxy

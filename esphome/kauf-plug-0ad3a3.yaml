@@ -1,0 +1,13 @@
+substitutions:
+  name: kauf-plug-0ad3a3
+  friendly_name: Master Space Heater
+packages:
+  Kauf.PLF10: github://KaufHA/PLF10/kauf-plug.yaml
+esphome:
+  name: ${name}
+  name_add_mac_suffix: false
+
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password

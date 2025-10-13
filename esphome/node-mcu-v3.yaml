@@ -1,0 +1,39 @@
+esphome:
+  name: node-mcu-v3
+
+esp8266:
+  board: nodemcuv2
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "LHSJXWS600HEC9G4KCmkeDaNW5KobXjWkI94uPvgGtY="
+
+ota:
+  password: "fa7550ec664bc7d83a4774d831a932d0"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Node-Mcu-V3 Fallback Hotspot"
+    password: "vwEyTdNcRQ0d"
+
+captive_portal:
+
+web_server:
+  port: 80
+    
+sensor:
+  - platform: ultrasonic
+    name: "Ultrasonic Sensor"
+    trigger_pin: D1
+    echo_pin: D2
+    update_interval: 100ms
+    accuracy_decimals: 5
+    unit_of_measurement: m

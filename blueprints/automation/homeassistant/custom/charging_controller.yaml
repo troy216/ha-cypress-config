@@ -1,0 +1,83 @@
+blueprint:
+  name: Charging Controller
+  description: >
+    Turns a relay switch on/off based on a battery sensor reading.
+    Use this blueprint to keep a connected, battery powered device within a specific range of battery charge stated.
+    This will help maintain the health of the battery over time.
+  domain: automation
+  input:
+    battery_sensor:
+      name: Battery Sensor
+      description: The sensor that reports the battery level.
+      selector:
+        entity:
+          domain: sensor
+    relay_switch:
+      name: Relay Switch
+      description: The switch to control the charging relay.
+      selector:
+        entity:
+          domain: switch
+    lower_threshold:
+      name: Lower Threshold
+      description: When the battery level is below this value, the relay will be turned on.
+      default: 48
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+    upper_threshold:
+      name: Upper Threshold
+      description: When the battery level is above this value, the relay will be turned off.
+      default: 52
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+mode: single
+
+trigger:
+  - platform: time_pattern
+    minutes: "/1"
+
+condition:
+  - condition: or
+    conditions:
+      - condition: and
+        conditions:
+          - condition: numeric_state
+            entity_id: !input battery_sensor
+            above: !input upper_threshold
+          - condition: state
+            entity_id: !input relay_switch
+            state: "on"
+      - condition: and
+        conditions:
+          - condition: numeric_state
+            entity_id: !input battery_sensor
+            below: !input lower_threshold
+          - condition: state
+            entity_id: !input relay_switch
+            state: "off"
+
+action:
+  - choose:
+      - conditions:
+          - condition: numeric_state
+            entity_id: !input battery_sensor
+            above: !input upper_threshold
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input relay_switch
+      - conditions:
+          - condition: numeric_state
+            entity_id: !input battery_sensor
+            below: !input lower_threshold
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: !input relay_switch

@@ -1,0 +1,231 @@
+"""Async Socket Package."""
+
+import asyncio
+import logging
+import os
+import pickle
+import socket
+from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable, Coroutine
+from functools import partialmethod
+from typing import Any
+
+from btsocket import btmgmt_socket
+
+type SocketRecvCallback = Callable[[bytes], Coroutine]
+type SocketErrorCallback = Callable[[str], Coroutine]
+type SocketWaitRecvCallback = Callable[[], Awaitable[tuple[bytes | None, bool]]]
+
+TUNNEL_SOCKET_FILE_VAR = "TUNNEL_SOCKET_FILE"
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class AsyncSocketBase(ABC):
+    """Base Async Socket."""
+
+    def __init__(self) -> None:
+        self._on_recv: SocketRecvCallback | None = None
+        self._on_error: SocketErrorCallback | None = None
+        self._ready_recv_event = asyncio.Event()
+        self._functional_recv_started: bool = False
+        self._recv_task: asyncio.Task | None = None
+        self._cmd_event = asyncio.Event()
+        self._cmd_exc: BaseException | None = None
+        self._cmd_res: bytes | None = None
+        self._cmd_lock = asyncio.Lock()
+        self._is_mgmt: bool = False
+
+    @abstractmethod
+    async def _async_open_socket(self, name: str, *args) -> int:  # noqa: ANN002
+        """Open the socket."""
+
+    @abstractmethod
+    async def _async_start_recv(self) -> None:
+        """Init the socket."""
+
+    async def async_init(
+        self,
+        name: str,
+        read_callback: SocketRecvCallback | None,
+        error_callback: SocketErrorCallback | None,
+        is_mgmt: bool,
+        *args,  # noqa: ANN002
+    ) -> int:
+        """Async Initialize an async socket: setup the callbacks and create the socket."""
+        self._is_mgmt = is_mgmt
+        self._on_recv = read_callback
+        self._on_error = error_callback
+        return await self._async_open_socket(name, *args)
+
+    async def async_start_recv(self) -> None:
+        """Async start listening to the created socket."""
+        await self._async_start_recv()
+        self._functional_recv_started = True
+
+    async def _setup_recv_loop(self, wait_recv_callback: SocketWaitRecvCallback) -> None:
+        """Help function: starts a listening loop."""
+        self._ready_recv_event.clear()
+        self._recv_task = asyncio.create_task(self._async_base_receive(wait_recv_callback))
+        await asyncio.wait_for(self._ready_recv_event.wait(), 1)
+
+    async def _async_base_receive(self, wait_recv_callback: SocketWaitRecvCallback) -> None:
+        self._ready_recv_event.set()
+        is_listening: bool = True
+        while is_listening:
+            try:
+                data, is_listening = await wait_recv_callback()
+                if is_listening and self._on_recv and data is not None:
+                    await self._on_recv(data)
+            except asyncio.CancelledError:  # Task Cancelled: just return
+                return
+            except BrokenPipeError:  # Socket Exception
+                is_listening = False
+            except Exception:  # Unknown Exception
+                _LOGGER.exception("Exception on recv")
+                is_listening = False
+        if self._on_error and self._functional_recv_started:
+            self._functional_recv_started = False
+            await self._on_error("Socket closed by peer or Exception on recv.")
+
+    @abstractmethod
+    async def _async_call(self, method: str, *args) -> Any:  # noqa: ANN002, ANN401
+        """Call the socket method. MUST call _base_call_result() when finished or _base_call_exception()."""
+
+    def _base_call_result(self, result: Any) -> None:  # noqa: ANN401
+        self._cmd_exc = None
+        self._cmd_res = result
+        self._cmd_event.set()
+
+    def _base_call_exception(self, exception: BaseException) -> None:
+        self._cmd_res = None
+        self._cmd_exc = exception
+        self._cmd_event.set()
+
+    async def _async_call_base(self, method: str, *args) -> Any:  # noqa: ANN002, ANN401
+        async with self._cmd_lock:
+            self._cmd_event.clear()
+            self._cmd_exc = None
+            self._cmd_res = None
+            await self._async_call(method, *args)
+            await asyncio.wait_for(self._cmd_event.wait(), 1)
+            if self._cmd_exc is not None:
+                raise self._cmd_exc
+            return self._cmd_res
+
+    def close(self) -> None:
+        """Closure."""
+        self._functional_recv_started = False
+        self._close()
+        if self._recv_task is not None and not self._recv_task.done():
+            self._recv_task.cancel()
+
+    @abstractmethod
+    def _close(self) -> None:
+        """Closure."""
+
+    async_bind = partialmethod(_async_call_base, "bind")
+    async_setsockopt = partialmethod(_async_call_base, "setsockopt")
+    async_sendall = partialmethod(_async_call_base, "sendall")
+
+
+class AsyncSocket(AsyncSocketBase):
+    """Async Socket standard based on socket.socket."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._socket: socket.socket | None = None
+
+    async def _async_open_socket(self, _: str, *args) -> int:  # noqa: ANN002
+        if self._is_mgmt:
+            self._socket = btmgmt_socket.open()
+        else:
+            self._socket = socket.socket(*args)
+        self._socket.setblocking(False)
+        return self._socket.fileno()
+
+    async def _async_start_recv(self) -> None:
+        await self._setup_recv_loop(self._async_recv)
+
+    async def _async_recv(self) -> tuple[bytes | None, bool]:
+        """Receive Data from socket."""
+        if self._socket is None:
+            return None, False
+        data = await asyncio.get_event_loop().sock_recv(self._socket, 4096)
+        return data, len(data) > 0
+
+    def _call_done(self, future: asyncio.Future) -> None:
+        if (exc := future.exception()) is not None:
+            self._base_call_exception(exc)
+        else:
+            self._base_call_result(future.result())
+
+    async def _async_call(self, method: str, *args) -> None:  # noqa: ANN002
+        future = asyncio.get_event_loop().run_in_executor(None, getattr(self._socket, method), *args)
+        future.add_done_callback(self._call_done)
+
+    def _close(self) -> None:
+        """Close."""
+        if self._socket:
+            if self._is_mgmt:
+                btmgmt_socket.close(self._socket)
+            else:
+                self._socket.close()
+            self._socket = None
+
+
+class AsyncTunnelSocket(AsyncSocketBase):
+    """Async Socket based on tunnel Unix Socket."""
+
+    SOCKET_TUNNEL_FILE = os.environ.get("TUNNEL_SOCKET_FILE", "/tunnel_socket/hci.sock")
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._unix_reader = None
+        self._unix_writer = None
+
+    async def _async_open_socket(self, name: str, *args) -> int:  # noqa: ANN002
+        self._unix_reader, self._unix_writer = await asyncio.open_unix_connection(path=self.SOCKET_TUNNEL_FILE)
+        await self._setup_recv_loop(self._async_recv)
+        return await self._async_call_base("##MGMTCREATE" if self._is_mgmt else "##CREATE", name, *args)
+
+    async def _async_start_recv(self) -> None:
+        await self._async_call_base("##RECV", 4096)
+
+    async def _async_recv(self) -> tuple[bytes | None, bool]:
+        """Receive Data from socket."""
+        if self._unix_reader is None:
+            return None, False
+        data_len = int.from_bytes(await self._unix_reader.read(2))
+        if not data_len:
+            return None, False
+        data = await self._unix_reader.read(data_len)
+        action, recv_data = pickle.loads(data)  # noqa: S301
+        if action == 0:
+            self._base_call_result(recv_data)
+            return None, True
+        if action == 1:
+            self._base_call_exception(recv_data)
+            return None, True
+        if action == 10 and self._on_recv:
+            return recv_data, True
+        return None, True
+
+    async def _async_call(self, method: str, *args) -> None:  # noqa: ANN002
+        if self._unix_writer is None:
+            return
+        data = pickle.dumps((10, [method, *args]))
+        self._unix_writer.write(len(data).to_bytes(2))
+        self._unix_writer.write(data)
+        await self._unix_writer.drain()
+
+    def _close(self) -> None:
+        """Closure."""
+        if self._unix_writer:
+            self._unix_writer.close()
+            self._unix_writer = None
+
+
+def create_async_socket() -> AsyncSocketBase:
+    """Return the relevant async socket if the tunneling is properly configured."""
+    return AsyncTunnelSocket() if TUNNEL_SOCKET_FILE_VAR in os.environ else AsyncSocket()

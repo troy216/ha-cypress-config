@@ -1,0 +1,33 @@
+substitutions:
+  name: esp32-bluetooth-proxy-b901ac
+  friendly_name: Bluetooth Proxy 1
+  board: nodemcu-32s
+  
+packages:
+  esphome.bluetooth-proxy: github://esphome/firmware/bluetooth-proxy/esp32-generic.yaml@main
+
+esphome:
+  name: ${name}
+  name_add_mac_suffix: false
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: ${board}
+  framework:
+    type: esp-idf
+
+api:
+  encryption:
+    key: DvAuvo4oOwXv1qFk/e8pnJWNcuPpkQd44fcIEdi+wMc=
+
+ota:
+  
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+bluetooth_proxy:
+  active: true
+
+web_server:
+  port: 80

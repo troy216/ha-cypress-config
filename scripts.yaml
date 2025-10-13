@@ -1,0 +1,17 @@
+garage_door_notification:
+  alias: Close Garage Door
+  use_blueprint:
+    path: homeassistant/confirmable_notification.yaml
+    input:
+      notify_device: ceb3bca1296f3428e42722b6c0586e26
+      title: Garage Door Alert
+      message: The garage door is open
+      confirm_action:
+      - service: button.press
+        data: {}
+        target:
+          entity_id: button.garage_close
+      confirm_text: Close Door?
+      dismiss_text: Leave Open
+  mode: single
+  icon: mdi:garage-alert

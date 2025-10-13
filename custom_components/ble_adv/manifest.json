@@ -1,0 +1,21 @@
+{
+  "domain": "ble_adv",
+  "name": "BLE ADV Ceiling Fan / Lamps",
+  "after_dependencies": [
+    "esphome"
+  ],
+  "codeowners": [
+    "@NicoIIT"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/NicoIIT/ha-ble-adv",
+  "integration_type": "device",
+  "iot_class": "assumed_state",
+  "issue_tracker": "https://github.com/NicoIIT/ha-ble-adv/issues",
+  "requirements": [
+    "bluetooth_adapters",
+    "pycryptodome",
+    "btsocket"
+  ],
+  "version": "1.5.1"
+}

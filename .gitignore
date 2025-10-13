@@ -1,0 +1,49 @@
+# Secrets and Credentials
+secrets.yaml
+*.secret
+*.key
+*.pem
+id_rsa*
+
+# Home Assistant Runtime Files
+home-assistant.log*
+home-assistant_v2.db*
+*.db
+*.db-shm
+*.db-wal
+*.pid
+.uuid
+.HA_VERSION
+
+# Storage and Cache
+.storage/
+.cloud/
+tts/
+deps/
+.google.token
+
+# Backups
+*.backup
+*.bak
+backups/
+
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Temporary
+tmp/
+.ha_run.lock
+glances/
+
+# Zigbee
+zigbee.db*
+
+# Z-Wave
+zwavejs2mqtt/
+zwcfg_*.xml
+OZW_Log.txt
+
+# www directory
+www/config-backup.tar.gz

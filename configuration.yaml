@@ -1,0 +1,131 @@
+cloud:
+
+# Loads default set of integrations. Do not remove.
+default_config:
+
+logbook:
+
+# Text to speech
+tts:
+  - platform: google_translate
+
+automation: !include automations.yaml
+ios: !include ios.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+# You should update the version number at the end of the url
+# after every update to avoid the old version being cached by Home Assistant
+frontend:
+  extra_module_url:
+    - /hacsfiles/kiosk-mode/kiosk-mode.js?v6.4.0
+
+panel_custom:
+  - name: ha_integ
+    sidebar_title: Integrations
+    sidebar_icon: mdi:puzzle
+    js_url: /api/hassio/app/entrypoint.js
+    url_path: "config/integrations"
+    embed_iframe: true
+    require_admin: true
+    config:
+      ingress: core_configurator
+
+  - name: ha_auto
+    sidebar_title: Automations
+    sidebar_icon: mdi:home-automation
+    js_url: /api/hassio/app/entrypoint.js
+    url_path: "config/automation"
+    embed_iframe: true
+    require_admin: true
+    config:
+      ingress: core_configurator
+
+  - name: ha_addons
+    sidebar_title: Add-ons
+    sidebar_icon: mdi:puzzle-plus
+    js_url: /api/hassio/app/entrypoint.js
+    url_path: "hassio/dashboard"
+    embed_iframe: true
+    require_admin: true
+    config:
+      ingress: core_configurator
+
+mqtt:
+
+cover:
+  - platform: template
+    covers:
+      garage_door:
+        friendly_name: "Garage Door"
+        value_template: >
+          {% if is_state('binary_sensor.garage_door_state', 'on') %}
+            open
+          {% else %}
+            closed
+          {% endif %}
+        open_cover:
+          service: switch.turn_on
+          target:
+            entity_id: switch.garage_door_relay
+        close_cover:
+          service: switch.turn_on
+          target:
+            entity_id: switch.garage_door_relay
+        stop_cover:
+          service: switch.turn_off
+          target:
+            entity_id: switch.garage_door_relay
+        icon_template: >
+          {% if is_state('binary_sensor.garage_door_state', 'on') %}
+            mdi:garage-open
+          {% else %}
+            mdi:garage
+          {% endif %}
+
+climate:
+  - platform: climate_template
+    name: Office Thermostat
+    modes:
+      - "off"
+      - "auto"
+    min_temp_template: "{{ state_attr('climate.office_hvac_air_conditioner','min_temp') | float }}"
+    max_temp_template: "{{ state_attr('climate.office_hvac_air_conditioner','max_temp') | float }}"
+    current_temperature_template: "{{ states('sensor.office_temperature') | float }}" # External temperature sensor
+    hvac_mode_template: >
+      {% if is_state('climate.office_hvac_air_conditioner', 'off') %}
+        off
+      {% else %}
+        auto
+      {% endif %}
+    set_temperature:
+      - service: climate.set_temperature
+        target:
+          entity_id: climate.office_hvac_air_conditioner
+        data:
+          temperature: >
+            {% set external_temp = states('sensor.office_temperature') | float %}
+            {% set internal_temp = state_attr('climate.office_hvac_air_conditioner', 'current_temperature') | float %}
+            {% set target_temp = temperature | float %}
+            {{ internal_temp + (target_temp - external_temp) }}
+    set_hvac_mode:
+      service: >
+        {% if hvac_mode == 'off' %}
+          climate.turn_off
+        {% elif hvac_mode == 'auto' %}
+          climate.turn_on
+        {% endif %}
+      target:
+        entity_id: climate.office_hvac_air_conditioner
+
+logger:
+  default: info # Or your existing default log level
+  logs:
+    homeassistant.components.bluetooth: debug
+    homeassistant.components.bluetooth_le_tracker: debug
+
+zha_toolkit:
+
+# Shell commands for git operations
+shell_command:
+  git_push_config: /config/shell/git-push-config.sh

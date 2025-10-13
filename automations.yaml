@@ -1,0 +1,241 @@
+- alias: Open Garage
+  trigger:
+  - platform: event
+    event_type: ios.action_fired
+    event_data:
+      actionName: Open Garage
+  action:
+  - service: button.press
+    entity_id: button.garage_open
+  id: bff775fb07d6453faca8c1ae17d1de8c
+- alias: Close Garage
+  trigger:
+  - platform: event
+    event_type: ios.action_fired
+    event_data:
+      actionName: Close Garage
+  action:
+  - service: button.press
+    entity_id: button.garage_close
+  id: 4c9f79703221427ba33cbc5f0fc2eb13
+- id: '1668582687707'
+  alias: Garage Door - Notify After Open
+  description: Will send notification if garage door is still open after 10 minutes.
+  trigger:
+  - platform: state
+    entity_id:
+    - cover.garage_door
+    from: closed
+    to: open
+    for:
+      hours: 0
+      minutes: 10
+      seconds: 0
+  condition: []
+  action:
+  - service: script.garage_door_notification
+    data: {}
+  mode: single
+- alias: Delete iBeacon Tracker Devices
+  trigger:
+    platform: time
+    at: 03:00:00
+  action:
+    event: delete_beacons
+    event_data:
+      prefixes:
+      - rivian
+  id: 1db6388e4f8741038ec66721ee80401f
+- id: '1731171022698'
+  alias: Garage Is Open Notification
+  description: Sends notification when the garage door is opened.
+  triggers:
+  - type: opened
+    device_id: 3c622461c8c971b8b3332b5ed7b93996
+    entity_id: f39c322b59f9b934de12de865a7de3f5
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - action: notify.mobile_app_troys_iphone
+    metadata: {}
+    data:
+      message: Garage Door is Open
+      title: Garage Open
+  mode: single
+- id: '1731171259521'
+  alias: Garage Is Closed Notification
+  description: Sends notification when the garage door is opened.
+  triggers:
+  - type: not_opened
+    device_id: 3c622461c8c971b8b3332b5ed7b93996
+    entity_id: f39c322b59f9b934de12de865a7de3f5
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - action: notify.mobile_app_troys_iphone
+    metadata: {}
+    data:
+      message: Garage Door is Closed
+      title: Garage Open
+  mode: single
+- id: '1731527092397'
+  alias: 'Turn Of Water Main: Leak Detected'
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.water_leak_sensors
+    from: 'off'
+    to: 'on'
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: 7a21e5e9a4ea32f768e202cd78699906
+    entity_id: 8580f6300053c81a971332367196801a
+    domain: switch
+  mode: single
+- id: '1732294050048'
+  alias: Office HVAC Update
+  description: Update heat pump
+  trigger:
+  - platform: state
+    entity_id: climate.office_hvac_air_conditioner
+    attribute: current_temperature
+  - platform: state
+    entity_id: climate.office_thermostat
+    attribute: current_temperature
+  - platform: state
+    entity_id: climate.office_thermostat
+    attribute: temperature
+  action:
+  - variables:
+      external_temp: '{{ states(''sensor.office_temperature'') | float }}'
+      internal_temp: '{{ state_attr(''climate.office_hvac_air_conditioner'', ''current_temperature'')
+        | float }}'
+      target_temp: '{{ state_attr(''climate.office_thermostat'', ''temperature'')
+        | float }}'
+      temp_diff: '{{ abs(target_temp - internal_temp) }}'
+      hvac_mode: '{{ ''heat'' if external_temp < internal_temp else ''cool'' }}'
+      preset_mode: '{{ ''boost'' if temp_diff > 5 else ''none'' }}'
+  - service: climate.set_temperature
+    target:
+      entity_id: climate.office_hvac_air_conditioner
+    data:
+      temperature: '{{ internal_temp + (desired_temp - external_temp) }}'
+  - service: climate.set_hvac_mode
+    target:
+      entity_id: climate.office_hvac_air_conditioner
+    data:
+      hvac_mode: '{{ hvac_mode }}'
+  - service: climate.set_preset_mode
+    target:
+      entity_id: climate.office_hvac_air_conditioner
+    data:
+      preset_mode: '{{ preset_mode }}'
+- id: '1738609962577'
+  alias: Office Dashboard Charging
+  description: Office Dashboard Charging
+  triggers:
+  - minutes: /1
+    trigger: time_pattern
+  conditions:
+  - condition: or
+    conditions:
+    - condition: and
+      conditions:
+      - condition: numeric_state
+        entity_id: sensor.dashboard_1_battery_level
+        above: 55
+      - condition: state
+        entity_id: switch.wall_relays_dashboard_office
+        state: 'on'
+    - condition: and
+      conditions:
+      - condition: numeric_state
+        entity_id: sensor.dashboard_1_battery_level
+        below: 45
+      - condition: state
+        entity_id: switch.wall_relays_dashboard_office
+        state: 'off'
+  actions:
+  - choose:
+    - conditions:
+      - condition: numeric_state
+        entity_id: sensor.dashboard_1_battery_level
+        above: 55
+      sequence:
+      - target:
+          entity_id: switch.wall_relays_dashboard_office
+        action: switch.turn_off
+        data: {}
+    - conditions:
+      - condition: numeric_state
+        entity_id: sensor.dashboard_1_battery_level
+        below: 45
+      sequence:
+      - target:
+          entity_id: switch.wall_relays_dashboard_office
+        action: switch.turn_on
+        data: {}
+  mode: single
+- id: '1738691576022'
+  alias: Office Dashboard Charging Controller
+  description: ''
+  use_blueprint:
+    path: homeassistant/custom/charging_controller.yaml
+    input:
+      battery_sensor: sensor.dashboard_1_battery_level
+      relay_switch: switch.wall_relays_dashboard_office
+- id: '1750432162710'
+  alias: Watering Seed Front Yard MWFS
+  description: ''
+  use_blueprint:
+    path: homeassistant/watering_schedule.yaml
+    input:
+      valve_entity: switch.watering_valve_2
+      days_of_week:
+      - mon
+      - wed
+      - fri
+      - sat
+      - tue
+      - thu
+      - sun
+      times_of_day_select:
+      - 07:00:00
+      - 09:00:00
+      - '11:00:00'
+      - '13:00:00'
+      - '15:00:00'
+      - '17:00:00'
+      - '19:00:00'
+      - '21:00:00'
+      watering_duration: 10
+- id: '1750435179185'
+  alias: Watering Seed Back Yard SuTuThSa
+  description: ''
+  use_blueprint:
+    path: homeassistant/watering_schedule.yaml
+    input:
+      valve_entity: switch.sonoff_swv
+      days_of_week:
+      - sat
+      - tue
+      - thu
+      - sun
+      - mon
+      - wed
+      - fri
+      times_of_day_select:
+      - 07:00:00
+      - 09:00:00
+      - '11:00:00'
+      - '13:00:00'
+      - '15:00:00'
+      - '17:00:00'
+      - '19:00:00'
+      - '21:00:00'
+      - '13:30:00'
+      watering_duration: 10
