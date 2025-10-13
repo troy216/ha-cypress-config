@@ -125,7 +125,3 @@ logger:
     homeassistant.components.bluetooth_le_tracker: debug
 
 zha_toolkit:
-
-# Shell commands for git operations
-shell_command:
-  git_push_config: /config/shell/git-push-config.sh

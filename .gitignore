@@ -45,5 +45,5 @@ zwavejs2mqtt/
 zwcfg_*.xml
 OZW_Log.txt
 
-# www directory
+# www directory (contains backup we created)
 www/config-backup.tar.gz
