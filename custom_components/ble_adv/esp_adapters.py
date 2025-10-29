@@ -50,7 +50,7 @@ class BleAdvEsphomeService:
             esp_svc = f"{device_name.replace('-', '_')}_{svc}"  # Same as "build_service_name" in ESPHome manager.py
             if (service := all_svcs.get(esp_svc)) is not None:
                 self.svc_name = esp_svc
-                self._svc_attrs = {attr: self._def_attr_val(val) for attr, val in service.schema.schema.items()}  # type: ignore NONE
+                self._svc_attrs = {attr.schema: self._def_attr_val(val) for attr, val in service.schema.schema.items()}  # type: ignore NONE
                 break
 
     def _def_attr_val(self, attr_type: Any) -> Any:  # noqa: ANN401
@@ -89,11 +89,11 @@ class BleAdvEsphomeAdapterV2(BleAdvAdapter):
         }
         await self._setup_svc.call(call_params)
         self._opened = True
-        self.logger.info("Connected")
+        self._add_diag("Connected", logging.INFO)
 
     def close(self) -> None:
         """Close the adapter, nothing to do."""
-        self.logger.info("Disconnected")
+        self._add_diag("Disconnected", logging.INFO)
 
     async def _on_error(self, message: str) -> None:
         await self.manager.reset_adapter(self.name, f"Unhandled error: {message}")
