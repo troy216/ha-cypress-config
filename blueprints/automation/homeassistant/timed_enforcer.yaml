@@ -1,0 +1,72 @@
+blueprint:
+  name: Timed Window Enforcement
+  description: >
+    Enforces an ON window beginning at a start time for a set duration.
+    Periodically corrects the switch state at a regular interval.
+    Works across midnight. Useful for grow lights, pumps, and similar loads.
+  domain: automation
+
+  input:
+    target_switch:
+      name: Switch
+      description: The switch/light entity to control
+      selector:
+        entity:
+          domain: switch
+
+    start_time:
+      name: Start Time
+      description: Time when the switch should turn ON each day
+      default: "07:00"
+      selector:
+        time: {}
+
+    duration_hours:
+      name: Duration (Hours)
+      description: Number of hours the switch should stay ON
+      default: 18
+      selector:
+        number:
+          min: 1
+          max: 24
+          step: 1
+
+    correction_minutes:
+      name: Correction Interval (Minutes)
+      description: How often to enforce correct state
+      default: 60
+      selector:
+        number:
+          min: 5
+          max: 180
+          step: 5
+
+trigger:
+  - platform: time_pattern
+    minutes: "/{{ correction_minutes }}"
+
+action:
+  - variables:
+      start_time: !input start_time
+      duration_hours: !input duration_hours
+      entity_id: !input target_switch
+      now_ts: "{{ now().timestamp() }}"
+      start_ts: "{{ today_at(start_time).timestamp() }}"
+      end_ts: "{{ (today_at(start_time) + duration_hours * 3600).timestamp() }}"
+      in_window: >
+        {% if end_ts > start_ts %}
+          {{ start_ts <= now_ts < end_ts }}
+        {% else %}
+          {{ now_ts >= start_ts or now_ts < end_ts }}
+        {% endif %}
+
+  - service: >
+      {% if in_window %}
+        switch.turn_on
+      {% else %}
+        switch.turn_off
+      {% endif %}
+    target:
+      entity_id: "{{ entity_id }}"
+
+mode: single
