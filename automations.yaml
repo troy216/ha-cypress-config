@@ -239,14 +239,42 @@
       - '21:00:00'
       - '13:30:00'
       watering_duration: 10
-
 - id: git_push_daily
-  alias: "Git: Daily Config Backup to GitHub"
-  description: "Automatically backup HA configuration to GitHub once per day"
+  alias: 'Git: Daily Config Backup to GitHub'
+  description: Automatically backup HA configuration to GitHub once per day
   trigger:
-    - platform: time
-      at: "03:00:00"
+  - platform: time
+    at: 03:00:00
   condition: []
   action:
-    - service: shell_command.git_push_config
+  - service: shell_command.git_push_config
+  mode: single
+- id: '1766608888636'
+  alias: Tower Pump ON every 15 minutes
+  description: ''
+  triggers:
+  - minutes: /15
+    trigger: time_pattern
+  actions:
+  - action: switch.turn_on
+    data: {}
+    target:
+      entity_id: switch.grow_tower_pump
+  mode: single
+- id: '1766609124183'
+  alias: Tower Pump OFF 10 minutes after start
+  description: ''
+  triggers:
+  - minutes: 10
+    trigger: time_pattern
+  - minutes: 25
+    trigger: time_pattern
+  - minutes: 40
+    trigger: time_pattern
+  - minutes: 55
+    trigger: time_pattern
+  actions:
+  - target:
+      entity_id: switch.grow_tower_pump
+    action: switch.turn_off
   mode: single
