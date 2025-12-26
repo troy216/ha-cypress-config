@@ -13,9 +13,8 @@
   "iot_class": "assumed_state",
   "issue_tracker": "https://github.com/NicoIIT/ha-ble-adv/issues",
   "requirements": [
-    "bluetooth_adapters",
     "pycryptodome",
     "btsocket"
   ],
-  "version": "v1.7.0"
+  "version": "v1.8.3"
 }

@@ -11,6 +11,7 @@ import re
 import sys
 from threading import Lock, Timer
 
+import aiohttp
 from aiohttp import ClientSession, ClientWebSocketResponse, WSMsgType
 
 from homeassistant.config_entries import ConfigEntry
@@ -34,6 +35,7 @@ class CieloHome:
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Set up Cielo Home api."""
+        self.can_reload: bool = True
         self._is_running: bool = True
         self._stop_running: bool = False
         self._access_token: str = ""
@@ -55,7 +57,6 @@ class CieloHome:
         self._last_ts_ping: int = 0
         self._last_ts_pong: int = 0
         self._last_connection_ts: int = 0
-        self._x_api_keys: list = None
         self._last_x_api_key: str = None
         self._reconnect_now = False
         self.hass: HomeAssistant = hass
@@ -67,6 +68,7 @@ class CieloHome:
             "referer": URL_CIELO,
             "origin": URL_CIELO,
             "user-agent": USER_AGENT,
+            "host": URL_API,
         }
 
     async def close(self):
@@ -79,41 +81,13 @@ class CieloHome:
         """None."""
         self.__event_listener.append(listener)
 
-    async def set_x_api_key(self) -> bool:
-        """Get the x_api_key."""
-        login_url = URL_CIELO
-        main_js_url = ""
-        async with ClientSession() as session:
-            session.headers.add("Cache-Control", "no-cache, no-store, must-revalidate")
-            session.headers.add("Pragma", "no-cache")
-            session.headers.add("Expires", "0")
-            async with session.get(
-                login_url + "auth/login?t=" + str(self.get_ts())
-            ) as resp:
-                html_text = await resp.text()
-                index = html_text.find('src="main.')
-                index2 = html_text.find('"', index + 5)
-                main_js_url = html_text[index + 5 : index2].replace('"', "")
-
-        if main_js_url != "":
-            async with ClientSession() as session:  # noqa: SIM117
-                async with session.get(
-                    login_url + main_js_url + "?t=" + str(self.get_ts())
-                ) as resp:
-                    html_text = await resp.text()
-                    x = re.compile(
-                        r"['][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9][A-Za-z0-9]{36}[']"
-                    )
-                    keys: list = x.findall(html_text)
-                    if len(keys) > 0:
-                        for x in range(len(keys)):
-                            keys[x] = keys[x].replace("'", "")
-                        self._x_api_keys = keys
-
-        return self._x_api_keys is not None
-
     async def async_auth(
-        self, access_token: str, refresh_token: str, session_id: str, user_id: str
+        self,
+        access_token: str,
+        refresh_token: str,
+        session_id: str,
+        user_id: str,
+        x_api_key: str,
     ) -> bool:
         """Set up Cielo Home auth."""
 
@@ -121,62 +95,17 @@ class CieloHome:
         self._refresh_token = refresh_token
         self._session_id = session_id
         self._user_id = user_id
+        self._last_x_api_key = x_api_key
 
         self._last_refresh_token_ts = self.get_ts()
         self._token_expire_in_ts = self.get_ts() + TIME_REFRESH_TOKEN
 
-        with contextlib.suppress(KeyError):
-            if self._entry is not None:
-                self._last_x_api_key = self._entry.data["x_api_key"]
-        await self.try_async_refresh_token(test=True)
+        await self.async_refresh_token(test=True)
 
         if self._access_token != "":
             self.create_websocket_log_exception(False)
 
         return True
-
-    async def try_async_refresh_token(
-        self,
-        access_token: str = "",
-        refresh_token: str = "",
-        session_id: str = "",
-        user_id: str = "",
-        test: bool = False,
-    ) -> bool:
-        """Set up Cielo Home auth."""
-        if self._last_x_api_key is not None:
-            self._headers["x-api-key"] = self._last_x_api_key
-            res = await self.async_refresh_token(
-                access_token, refresh_token, session_id, user_id, test
-            )
-            if res:
-                return True
-
-        try:
-            await self.set_x_api_key()
-        except Exception:
-            _LOGGER.error(sys.exc_info()[1])
-
-        for key in self._x_api_keys:
-            if self._last_x_api_key is not None:
-                if self._last_x_api_key == key:
-                    continue
-
-            self._headers["x-api-key"] = key
-            res = await self.async_refresh_token(
-                access_token, refresh_token, session_id, user_id, test, False
-            )
-            if res:
-                self._last_x_api_key = key
-                if self._entry is not None:
-                    config_data = self._entry.data.copy()
-                    config_data["x_api_key"] = key
-                    self.hass.config_entries.async_update_entry(
-                        self._entry, data=config_data
-                    )
-                return True
-
-        return False
 
     async def async_refresh_token(
         self,
@@ -184,17 +113,11 @@ class CieloHome:
         refresh_token: str = "",
         session_id: str = "",
         user_id: str = "",
+        x_api_key: str = "",
         test: bool = False,
-        refreshKey: bool = True,
     ) -> bool:
         """Set up Cielo Home refresh."""
-        _LOGGER.debug("Call refreshToken %s", self._headers["x-api-key"])
-
-        if refreshKey:
-            try:
-                await self.set_x_api_key()
-            except Exception:
-                _LOGGER.error(sys.exc_info()[1])
+        _LOGGER.debug("Call refreshToken %s", x_api_key)
 
         # Opening JSON file
         # fullpath: str = str(pathlib.Path(__file__).parent.resolve()) + "/login.json"
@@ -219,15 +142,21 @@ class CieloHome:
                 self._refresh_token = refresh_token
                 self._session_id = session_id
                 self._user_id = user_id
+                self._last_x_api_key = x_api_key
 
-            self._headers["authorization"] = self._access_token
+            headers: dict[str, str] = self._headers
+            headers["authorization"] = self._access_token
+            headers["x-api-key"] = self._last_x_api_key
+
+            data = {
+                "local": "en",
+                "refreshToken": self._refresh_token,
+            }
             async with ClientSession() as session:  # noqa: SIM117
-                async with session.get(
-                    "https://"
-                    + URL_API
-                    + "/web/token/refresh?refreshToken="
-                    + self._refresh_token,
+                async with session.post(
+                    "https://" + URL_API + "/web/token/refresh",
                     headers=self._headers,
+                    json=data,
                 ) as response:
                     if response.status == 200:
                         repjson = await response.json()
@@ -250,6 +179,7 @@ class CieloHome:
                                     config_data = self._entry.data.copy()
                                     config_data["access_token"] = self._access_token
                                     config_data["refresh_token"] = self._refresh_token
+                                    self.can_reload = False
                                     self.hass.config_entries.async_update_entry(
                                         self._entry, data=config_data
                                     )
@@ -259,6 +189,8 @@ class CieloHome:
                             else:
                                 _LOGGER.debug("Call test refreshToken success")
                             return True
+                    else:
+                        _LOGGER.error("Call refreshToken error %s", response.status)
         except Exception:
             _LOGGER.error(sys.exc_info()[1])
 
@@ -340,7 +272,11 @@ class CieloHome:
                                         self._last_ts_pong = self.get_ts() + 1
 
                                 with contextlib.suppress(Exception):
-                                    if js_data["message_type"] == "StateUpdate":
+                                    if (
+                                        js_data["message_type"] == "StateUpdate"
+                                        or js_data["message_type"]
+                                        == "DeviceSettingsAck"
+                                    ):
                                         for listener in self.__event_listener:
                                             listener.data_receive(js_data)
 
@@ -355,9 +291,7 @@ class CieloHome:
                         if now > (self._token_expire_in_ts):
                             self._reconnect_now = True
                             self._token_expire_in_ts = now + 60
-                            self.create_task_log_exception(
-                                self.try_async_refresh_token()
-                            )
+                            self.create_task_log_exception(self.async_refresh_token())
                         elif now - self._last_ts_ping >= TIMER_PING:
                             self._last_ts_ping = now
                             self._last_ts_pong = now
@@ -418,12 +352,16 @@ class CieloHome:
             else:
                 _LOGGER.debug("Reconnection")
             self._last_ts_ping = 0
+            await self.async_refresh_token()
             self.create_websocket_log_exception(True)
 
     def send_action(self, msg) -> None:
         """None."""
         # msg["token"] = self._access_token
-        msg["mid"] = self._session_id
+        with contextlib.suppress(KeyError):
+            if msg["mid"] == "":
+                msg["mid"] = self._session_id
+
         msg["ts"] = self.get_ts()
 
         # to be sure each msg have different ts, when 2 msg are send quickly
@@ -471,6 +409,8 @@ class CieloHome:
         devicesNotSupported = []
 
         appliance_ids = ""
+        unique_appliance_ids = set()  # Use a set to track unique appliance IDs
+
         if devices is not None:
             for device in devices:
                 appliance_id: str = str(device["applianceId"])
@@ -478,16 +418,14 @@ class CieloHome:
                     devicesNotSupported.append(device)
                     continue
 
-                if appliance_id in appliance_ids:
-                    continue
-
-                if appliance_ids != "":
-                    appliance_ids = appliance_ids + ","
-
-                appliance_ids = appliance_ids + str(appliance_id)
+                # Only add to appliance_ids string if we haven't seen this appliance ID before
+                if appliance_id not in unique_appliance_ids:
+                    unique_appliance_ids.add(appliance_id)
+                    if appliance_ids != "":
+                        appliance_ids = appliance_ids + ","
+                    appliance_ids = appliance_ids + str(appliance_id)
 
             appliances = await self.async_get_thermostat_info(appliance_ids)
-            appliance_ids = ""
 
             if len(devicesNotSupported) > 0:
                 for device in devicesNotSupported:
@@ -500,10 +438,23 @@ class CieloHome:
                     )
                     devices.remove(device)
 
+            # Attach appliance data to ALL devices, even those sharing the same appliance ID
             for device in devices:
+                device_appliance_id = device["applianceId"]
+                appliance_attached = False
                 for appliance in appliances:
-                    if appliance["applianceId"] == device["applianceId"]:
+                    if appliance["applianceId"] == device_appliance_id:
                         device["appliance"] = appliance
+                        appliance_attached = True
+                        break
+
+                # If no appliance data was found, log a warning
+                if not appliance_attached:
+                    _LOGGER.warning(
+                        "No appliance data found for device '%s' with appliance ID %s",
+                        device.get("deviceName", "Unknown"),
+                        device_appliance_id,
+                    )
 
             return devices
 
@@ -519,48 +470,76 @@ class CieloHome:
 
     async def async_get_thermostats(self):
         """Get de the list Devices/Thermostats."""
-
-        # Opening JSON file
-        # fullpath: str = str(pathlib.Path(__file__).parent.resolve()) + "/devices.json"
-        # file = open(fullpath)
-
-        # # returns JSON object as
-        # # a dictionary
-        # data = json.load(file)
-
-        # # Iterating through the json
-        # # list
-        # devices = data["data"]["listDevices"]
-
-        # file.close()
         if self._last_x_api_key is None:
-            await self.try_async_refresh_token()
+            await self.async_refresh_token()
 
         self._headers["authorization"] = self._access_token
         self._headers["x-api-key"] = self._last_x_api_key
         devices = None
-        async with ClientSession() as session:  # noqa: SIM117
-            async with session.get(
-                "https://" + URL_API + "/web/devices?limit=420",
-                headers=self._headers,
-            ) as response:
-                if response.status == 200:
-                    repjson = await response.json()
-                    if repjson["status"] == 200 and repjson["message"] == "SUCCESS":
-                        devices = repjson["data"]["listDevices"]
-                        if _LOGGER.isEnabledFor(logging.DEBUG):
-                            _LOGGER.debug("devices : %s", json.dumps(devices))
-                else:
-                    pass
+
+        # Retry logic for API calls
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                async with ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as session:
+                    async with session.get(
+                        "https://" + URL_API + "/web/devices?limit=420",
+                        headers=self._headers,
+                    ) as response:
+                        if response.status == 200:
+                            repjson = await response.json()
+                            if (
+                                repjson["status"] == 200
+                                and repjson["message"] == "SUCCESS"
+                            ):
+                                devices = repjson["data"]["listDevices"]
+                                if _LOGGER.isEnabledFor(logging.DEBUG):
+                                    _LOGGER.debug("devices : %s", json.dumps(devices))
+                                break
+                            else:
+                                _LOGGER.warning(
+                                    f"API returned error: {repjson.get('message', 'Unknown error')}"
+                                )
+                        elif response.status == 401:
+                            _LOGGER.info("Unauthorized, refreshing token...")
+                            if await self.async_refresh_token():
+                                self._headers["authorization"] = self._access_token
+                                continue
+                            else:
+                                _LOGGER.error("Failed to refresh token")
+                                break
+                        else:
+                            _LOGGER.warning(
+                                f"HTTP {response.status}: {await response.text()}"
+                            )
+
+            except asyncio.TimeoutError:
+                _LOGGER.warning(f"Timeout on attempt {attempt + 1}/{max_retries}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2**attempt)  # Exponential backoff
+            except Exception as e:
+                _LOGGER.error(
+                    f"Error getting devices on attempt {attempt + 1}/{max_retries}: {e}"
+                )
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2**attempt)  # Exponential backoff
 
         devices_supported: list = []
 
         if devices is not None:
             for device in devices:
                 try:
-                    self._appliance_id: str = str(device["applianceId"])
-                    devices_supported.append(device)
-                except Exception:
+                    appliance_id: str = str(device.get("applianceId", ""))
+                    if appliance_id and appliance_id != "0":
+                        devices_supported.append(device)
+                    else:
+                        _LOGGER.warning(
+                            f"Device {device.get('deviceName', 'Unknown')} has invalid appliance ID: {appliance_id}"
+                        )
+                except Exception as e:
+                    _LOGGER.error(f"Error processing device: {e}")
                     continue
 
         return devices_supported
