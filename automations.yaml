@@ -278,3 +278,64 @@
       entity_id: switch.grow_tower_pump
     action: switch.turn_off
   mode: single
+- id: '1767591807025'
+  alias: Grow lights off
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - switch.tower_white_6000k
+    from:
+    - 'on'
+    to:
+    - 'off'
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    target:
+      entity_id: light.tower_grow_light_1_light_1
+    data:
+      brightness_pct: 100
+  - action: light.turn_off
+    metadata: {}
+    target:
+      entity_id:
+      - light.tower_grow_light_1_light_2
+      - light.tower_red
+      - light.tower_grow_light_1_light_3
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 30
+      seconds: 0
+      milliseconds: 0
+  - action: light.turn_off
+    metadata: {}
+    data: {}
+    target:
+      entity_id: light.tower_grow_light_1_light_1
+  mode: restart
+- id: '1767592963198'
+  alias: Grow lights on
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - switch.tower_white_6000k
+    from:
+    - 'off'
+    to:
+    - 'on'
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    target:
+      entity_id:
+      - light.tower_grow_light_1_light_2
+      - light.tower_red
+      - light.tower_grow_light_1_light_3
+    data:
+      brightness_pct: 100
+  mode: single
