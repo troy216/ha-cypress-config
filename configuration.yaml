@@ -53,30 +53,29 @@ panel_custom:
 
 mqtt:
 
-cover:
-  - platform: template
-    covers:
-      garage_door:
-        friendly_name: "Garage Door"
-        value_template: >
+template:
+  - cover:
+      - name: "Garage Door"
+        unique_id: garage_door
+        state: >
           {% if is_state('binary_sensor.garage_door_state', 'on') %}
             open
           {% else %}
             closed
           {% endif %}
         open_cover:
-          service: switch.turn_on
-          target:
-            entity_id: switch.garage_door_relay
+          - action: switch.turn_on
+            target:
+              entity_id: switch.garage_door_relay
         close_cover:
-          service: switch.turn_on
-          target:
-            entity_id: switch.garage_door_relay
+          - action: switch.turn_on
+            target:
+              entity_id: switch.garage_door_relay
         stop_cover:
-          service: switch.turn_off
-          target:
-            entity_id: switch.garage_door_relay
-        icon_template: >
+          - action: switch.turn_off
+            target:
+              entity_id: switch.garage_door_relay
+        icon: >
           {% if is_state('binary_sensor.garage_door_state', 'on') %}
             mdi:garage-open
           {% else %}

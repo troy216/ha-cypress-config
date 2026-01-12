@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:community.home-assistant.io)",
+      "WebFetch(domain:api.github.com)"
+    ]
+  },
+  "disabledMcpjsonServers": [
+    "homeassistant"
+  ]
+}
