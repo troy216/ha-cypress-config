@@ -339,3 +339,37 @@
     data:
       brightness_pct: 100
   mode: single
+- id: '1768199536019'
+  alias: Move heat on
+  description: ''
+  triggers:
+  - device_id: 8d6f8056a53c4b11f85e650330699c21
+    domain: climate
+    entity_id: 78959d29afbe90c3dd5ae5533de2013d
+    type: current_temperature_changed
+    trigger: device
+    above: 65
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: bb21fcfcc913e431866a0b4452166426
+    entity_id: 7b6575f5396e01f68bcab3e3a647afe9
+    domain: switch
+  mode: single
+- id: '1768200924978'
+  alias: Move heat off
+  description: ''
+  triggers:
+  - device_id: 8d6f8056a53c4b11f85e650330699c21
+    domain: climate
+    entity_id: 78959d29afbe90c3dd5ae5533de2013d
+    type: current_temperature_changed
+    trigger: device
+    below: 65
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: bb21fcfcc913e431866a0b4452166426
+    entity_id: 7b6575f5396e01f68bcab3e3a647afe9
+    domain: switch
+  mode: single
