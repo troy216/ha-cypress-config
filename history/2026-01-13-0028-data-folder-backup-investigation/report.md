@@ -3,19 +3,28 @@
 **Date:** 2026-01-13 00:28
 **Session ID:** 0ecea30e-7fb8-48d7-9f1b-ed7a136ded89
 **Session Marker:** SESS-9156bac974f0
-**Duration:** ~30 minutes
+**Duration:** ~45 minutes
 
 ## Summary
 
 User asked whether the Claude Terminal add-on's `/data` folder is persisted and whether it's included in Home Assistant backups. Investigation confirmed `/data` is persisted but raised concerns about whether it's actually captured in backups. A test backup was created and deleted without properly verifying its contents.
 
-Additionally, created GitHub issue #1 to track the verification task, and updated tooling to include `github-cli` with authentication documentation.
+Session evolved to include:
+- Creating GitHub issue #1 to track the verification task
+- Adding `github-cli` to init-tools.sh for persistent installation
+- Documenting gh CLI authentication in CLAUDE.md to prevent future errors
 
 ## Goals
 
+### Initial
 - Understand if `/data` folder persists across add-on restarts
 - Determine if `/data` is included in HA backups
 - Explain why `/data` isn't visible in File Editor add-on
+
+### Evolved
+- Track follow-up tasks using GitHub issues (not session-scoped todo list)
+- Add GitHub CLI tooling for issue management
+- Document authentication to prevent repeated errors
 
 ## Key Findings
 
@@ -96,9 +105,22 @@ A full backup was created and Claude Terminal appeared in the addon list:
 
 Both `/config` and `/data` are on the same physical device but different directories.
 
+## Key Decisions
+
+### 1. Use GitHub Issues for Task Tracking
+- **Decision:** Track follow-up tasks in GitHub issues instead of session-scoped todo list
+- **Rationale:** TodoWrite tool is ephemeral (session-only); GitHub issues persist across sessions and are visible to user
+- **Alternative considered:** Creating `/config/TODO.md` file - rejected as GitHub provides better tracking
+
+### 2. Document gh CLI Authentication in CLAUDE.md
+- **Decision:** Add authentication instructions directly to CLAUDE.md
+- **Rationale:** Prevents repeated trial-and-error with `gh auth login` and scope errors
+- **Key insight:** Use `GH_TOKEN` environment variable, fall back to direct API if scope errors occur
+
 ## Issues Encountered
 
 - [Issue 1: Deleted backup without verification](issues/01-backup-deleted-without-verification.md)
+- [Issue 2: GitHub CLI authentication errors](issues/02-gh-cli-authentication-errors.md)
 
 ## Recommendations
 
