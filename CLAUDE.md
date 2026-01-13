@@ -27,10 +27,12 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
 
 ## Directives
 
-### Session Start
-- Ensure tools are available; if not, run `source /data/init-tools.sh`
-- Check GitHub for updates: `git fetch origin && git log HEAD..origin/main --oneline`
-- If updates exist, describe the changes and ask user if they want to pull
+### Session Start (on first user message)
+- Before addressing the user's request, run startup checks:
+  - Verify tools available; if missing, run `source /data/init-tools.sh`
+  - Check GitHub: `git fetch origin && git log HEAD..origin/main --oneline`
+- Report status briefly (e.g., "Tools ready. GitHub: no updates."), then address user's request
+- If updates exist, describe the changes and ask if user wants to pull
 - Do NOT automatically pull; local is authoritative unless user requests otherwise
 
 ### Safety
@@ -54,6 +56,7 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
 - Commit with co-author attribution: `Co-Authored-By: Claude <claude@anthropic.com>`
 - Never force push or rewrite history without explicit user request
 - Confirm with user before any git push
+- Always report when commits/pushes are made (include commit hash and summary)
 - Repository: `https://github.com/troy216/ha-cypress-config.git` (branch: main)
 
 ### Session Reports
