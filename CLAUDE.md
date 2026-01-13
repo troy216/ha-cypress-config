@@ -80,8 +80,8 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
 ### Session Identification
 To reliably identify this session (especially in concurrent environments):
 1. The session marker (e.g., `SESS-7f3a9c2b1e4d`) generated at startup is unique to this conversation
-2. Use `/data/scripts/find-session.sh <marker>` to get the session UUID
-3. Use `/data/scripts/find-session.sh <marker> --report` to find the existing report folder
+2. Use `/config/scripts/find-session.sh <marker>` to get the session UUID
+3. Use `/config/scripts/find-session.sh <marker> --report` to find the existing report folder
 4. The marker is recorded in the JSONL file, enabling definitive session matching
 
 ## API Access
