@@ -10,13 +10,13 @@ Generate a comprehensive session report documenting this conversation's activiti
    - Find your session marker from your startup status output (format: `SESS-xxxxxxxxxxxx`)
    - Run the lookup script:
      ```bash
-     /data/scripts/find-session.sh SESS-xxxxxxxxxxxx
+     /config/scripts/find-session.sh SESS-xxxxxxxxxxxx
      ```
    - This searches JSONL files for your marker and returns the session UUID
    - The marker ensures you find YOUR session, even with concurrent sessions running
 
 3. **Check for existing session report**:
-   - Run: `/data/scripts/find-session.sh SESS-xxxxxxxxxxxx --report`
+   - Run: `/config/scripts/find-session.sh SESS-xxxxxxxxxxxx --report`
    - If it returns a path, update that report instead of creating a new folder
    - If it returns `NO_REPORT`, this is a new session - create a new folder
 
