@@ -59,7 +59,10 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
 ### Session Reports
 - Generate session report before any git commit using `/save-session`
 - Store reports in `history/<YYYY-MM-DD-HHMM-summary>/`
-- Keep main `report.md` brief (15-25 lines); use detail files for extensive changes
+- Main `report.md` should be detailed and comprehensive
+- Create separate sub-reports in the session folder for:
+  - `issues/` - Individual issue files analyzing mistakes, rabbit holes, misunderstandings, or inefficiencies
+  - Each issue file should identify root cause and suggest improvements (for Claude or user)
 - Update existing session report if multiple saves in same session
 
 ## API Access
