@@ -6,16 +6,19 @@ Generate a comprehensive session report documenting this conversation's activiti
 
 1. **Determine session name**: `YYYY-MM-DD-HHMM-<brief-summary>` using current date/time and a 2-4 word summary of the session's main focus.
 
-2. **Get current session ID**:
-   ```bash
-   ls -t "/data/home/.claude/projects/-config/"*.jsonl 2>/dev/null | head -1 | xargs basename | sed 's/.jsonl//'
-   ```
-   - This returns the Claude Code session GUID for the current conversation
+2. **Get current session ID using your session marker**:
+   - Find your session marker from your startup status output (format: `SESS-xxxxxxxxxxxx`)
+   - Run the lookup script:
+     ```bash
+     /data/scripts/find-session.sh SESS-xxxxxxxxxxxx
+     ```
+   - This searches JSONL files for your marker and returns the session UUID
+   - The marker ensures you find YOUR session, even with concurrent sessions running
 
 3. **Check for existing session report**:
-   - Search `history/` for a report.md containing this session ID
-   - If found, update that report instead of creating a new folder
-   - If not found, this is a new session - create a new folder
+   - Run: `/data/scripts/find-session.sh SESS-xxxxxxxxxxxx --report`
+   - If it returns a path, update that report instead of creating a new folder
+   - If it returns `NO_REPORT`, this is a new session - create a new folder
 
 4. **Create session folder structure**:
    ```

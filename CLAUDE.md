@@ -30,10 +30,11 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
 ### Session Start (on first user message)
 - Before addressing the user's request, run startup checks:
   - Verify tools available; if missing, run `source /data/init-tools.sh`
+  - Generate session marker: `SESS-$(date +%s%N | sha256sum | head -c 12)`
   - Check GitHub: `git fetch origin && git log HEAD..origin/main --oneline`
   - Check for uncommitted changes: `git status --short`
   - Check for unpushed commits: `git log origin/main..HEAD --oneline`
-- Report status briefly (e.g., "Tools ready. GitHub: no updates."), then address user's request
+- Report status with marker (e.g., "Tools ready. GitHub synced. [SESS-7f3a9c2b1e4d]"), then address user's request
 - If remote updates exist, describe the changes and ask if user wants to pull
 - Do NOT automatically pull; local is authoritative unless user requests otherwise
 - If local uncommitted/unpushed changes exist:
@@ -75,6 +76,13 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
   - `issues/` - Individual issue files analyzing mistakes, rabbit holes, misunderstandings, or inefficiencies
   - Each issue file should identify root cause and suggest improvements (for Claude or user)
 - Update existing session report if multiple saves in same session
+
+### Session Identification
+To reliably identify this session (especially in concurrent environments):
+1. The session marker (e.g., `SESS-7f3a9c2b1e4d`) generated at startup is unique to this conversation
+2. Use `/data/scripts/find-session.sh <marker>` to get the session UUID
+3. Use `/data/scripts/find-session.sh <marker> --report` to find the existing report folder
+4. The marker is recorded in the JSONL file, enabling definitive session matching
 
 ## API Access
 
