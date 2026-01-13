@@ -3,11 +3,13 @@
 **Date:** 2026-01-13 00:28
 **Session ID:** 0ecea30e-7fb8-48d7-9f1b-ed7a136ded89
 **Session Marker:** SESS-9156bac974f0
-**Duration:** ~15 minutes
+**Duration:** ~30 minutes
 
 ## Summary
 
 User asked whether the Claude Terminal add-on's `/data` folder is persisted and whether it's included in Home Assistant backups. Investigation confirmed `/data` is persisted but raised concerns about whether it's actually captured in backups. A test backup was created and deleted without properly verifying its contents.
+
+Additionally, created GitHub issue #1 to track the verification task, and updated tooling to include `github-cli` with authentication documentation.
 
 ## Goals
 
@@ -115,8 +117,28 @@ Both `/config` and `/data` are on the same physical device but different directo
    - Custom scripts in `/data/scripts/`
    - Tool initialization in `/data/init-tools.sh`
 
+## Changes Made
+
+### `/data/init-tools.sh`
+Added `github-cli` to the packages list:
+```bash
+PACKAGES="git openssh-client jq yq github-cli"
+```
+
+### `/config/CLAUDE.md`
+- Updated Environment section to list `gh` as an available tool
+- Added new "GitHub CLI (gh)" section with:
+  - Authentication instructions using `GH_TOKEN` environment variable
+  - Examples for creating/listing issues
+  - Fallback to direct API when gh has scope errors
+  - Note about token scope limitations
+
+## GitHub Issues Created
+
+- [#1: Verify /data folder is captured in Home Assistant backups](https://github.com/troy216/ha-cypress-config/issues/1)
+
 ## Follow-up Items
 
-- [ ] Create another test backup and properly verify /data contents before deletion
+- [x] ~~Create another test backup and properly verify /data contents before deletion~~ → Tracked in GitHub Issue #1
 - [ ] Consider moving critical data to /config/ for guaranteed backup coverage
 - [ ] Document findings in CLAUDE.md if backup behavior is confirmed
