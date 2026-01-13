@@ -76,6 +76,7 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
 
 ## API Access
 
+### Home Assistant REST API
 ```bash
 TOKEN=$(cat /config/.ha_token)
 
@@ -87,9 +88,29 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"entity_id": "light.example"}' \
   http://192.168.1.2:8123/api/services/light/turn_on
-
-# Check error log
-curl -s -H "Authorization: Bearer $TOKEN" http://192.168.1.2:8123/api/error_log
 ```
 
 **WebSocket API:** `ws://192.168.1.2:8123/api/websocket` (for entity registry operations)
+
+### Supervisor API (Full Admin Access)
+```bash
+ADMIN_TOKEN=$(cat /config/.ha_supervisor_admin_token)
+
+# Get addon logs
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/addons/<slug>/logs
+
+# Get supervisor logs
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/supervisor/logs
+
+# Get addon info
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/addons/<slug>/info
+
+# List all addons
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/addons
+```
+
+**Note:** The admin token is extracted from HA Core container. If it stops working after HA restart, re-extract with:
+```bash
+# Run from SSH addon with protection mode disabled:
+docker inspect homeassistant | grep -o 'SUPERVISOR_TOKEN=[^"]*' | cut -d= -f2 > /config/.ha_supervisor_admin_token
+```
