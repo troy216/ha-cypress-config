@@ -6,9 +6,18 @@ Generate a comprehensive session report documenting this conversation's activiti
 
 1. **Determine session name**: `YYYY-MM-DD-HHMM-<brief-summary>` using current date/time and a 2-4 word summary of the session's main focus.
 
-2. **Check for existing session**: Look in `/config/history/` for a folder starting with today's date. If this session already has a report, update it instead of creating a new folder.
+2. **Get current session ID**:
+   ```bash
+   ls -t "/data/home/.claude/projects/-config/"*.jsonl 2>/dev/null | head -1 | xargs basename | sed 's/.jsonl//'
+   ```
+   - This returns the Claude Code session GUID for the current conversation
 
-3. **Create session folder structure**:
+3. **Check for existing session report**:
+   - Search `history/` for a report.md containing this session ID
+   - If found, update that report instead of creating a new folder
+   - If not found, this is a new session - create a new folder
+
+4. **Create session folder structure**:
    ```
    /config/history/<session-name>/
    ├── report.md              # Main detailed report
@@ -18,11 +27,12 @@ Generate a comprehensive session report documenting this conversation's activiti
        └── ...
    ```
 
-4. **Generate `report.md`** with comprehensive detail:
+5. **Generate `report.md`** with comprehensive detail:
    ```markdown
    # Session Report: <summary>
 
    **Date:** YYYY-MM-DD HH:MM
+   **Session ID:** <session-guid-from-step-2>
    **Duration:** ~X minutes (estimated)
 
    ## Summary
@@ -60,7 +70,7 @@ Generate a comprehensive session report documenting this conversation's activiti
    - Open questions
    ```
 
-5. **Create issue files** in `issues/` folder for each problem encountered:
+6. **Create issue files** in `issues/` folder for each problem encountered:
    ```markdown
    # Issue: <descriptive name>
 
@@ -87,13 +97,13 @@ Generate a comprehensive session report documenting this conversation's activiti
    - For System: documentation, tooling, or process improvements
    ```
 
-6. **Commit and push**:
+7. **Commit and push**:
    - Stage all current changes: `git add -A`
    - Commit with message: `Session report: <session-name>`
    - Push to origin: `git push origin main`
    - Report commit hash and push status to user
 
-7. **Inform user**: Confirm report location, commit hash, and summarize any issues documented.
+8. **Inform user**: Confirm report location, commit hash, and summarize any issues documented.
 
 ## Important
 - Be thorough and honest in issue analysis
