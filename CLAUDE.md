@@ -60,7 +60,9 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
 - GitHub token and git config persist in `/data/home/`
 - Local is authoritative; do not pull unless user explicitly requests
 - Commit with co-author attribution: `Co-Authored-By: Claude <claude@anthropic.com>`
-- Commit frequently; always commit after session reports
+- Commit and push frequently; do not ask - just do it
+- Always push immediately after committing
+- Before each commit, update session report (via `/save-session`) so progress is tracked in the commit
 - Never force push or rewrite history without explicit user request
 - Always report when commits/pushes are made (include commit hash and summary)
 - Repository: `https://github.com/troy216/ha-cypress-config.git` (branch: main)
