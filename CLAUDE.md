@@ -47,7 +47,7 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
 - Never commit sensitive files: `secrets.yaml`, `.storage/`, `*.db*`, `.cloud/`
 
 ### Proactive Monitoring
-- Check `/api/error_log` for issues when troubleshooting
+- Check HA Core logs via Supervisor API for issues when troubleshooting (see Log Access section)
 - Review entity states and service availability proactively
 - Validate configuration changes before restart
 
@@ -113,4 +113,30 @@ curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/addons
 ```bash
 # Run from SSH addon with protection mode disabled:
 docker inspect homeassistant | grep -o 'SUPERVISOR_TOKEN=[^"]*' | cut -d= -f2 > /config/.ha_supervisor_admin_token
+```
+
+### Log Access
+
+All logs are accessed via the Supervisor Admin API. The REST API `/api/error_log` endpoint does not exist.
+
+**Available log endpoints:**
+```bash
+ADMIN_TOKEN=$(cat /config/.ha_supervisor_admin_token)
+
+# HA Core logs (includes all integration/component logs)
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/core/logs
+
+# Supervisor logs
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/supervisor/logs
+
+# Add-on logs (replace <slug> with add-on slug, e.g., core_mosquitto)
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/addons/<slug>/logs
+
+# Host/OS logs
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/host/logs
+```
+
+**Note:** Logs contain ANSI color codes. For clean output, save to file first:
+```bash
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/core/logs > /tmp/core_logs.txt
 ```
