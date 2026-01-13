@@ -47,3 +47,4 @@ OZW_Log.txt
 
 # www directory (contains backup we created)
 www/config-backup.tar.gz
+.ha_supervisor_admin_token

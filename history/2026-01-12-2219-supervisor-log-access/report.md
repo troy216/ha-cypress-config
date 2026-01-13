@@ -102,8 +102,32 @@ curl -H "Authorization: Bearer $SUPERVISOR_TOKEN" "http://supervisor/addons/self
 
 - [Issue 1: Initial API connection confusion](issues/01-api-connection-confusion.md)
 - [Issue 2: Extensive research rabbit hole](issues/02-research-depth.md)
+- [Issue 3: Overlooked simpler solution](issues/03-simpler-solution.md)
 
-## Follow-up Items
+## Resolution
+
+**SOLVED:** Used HA Core's SUPERVISOR_TOKEN which has full admin privileges.
+
+### Steps Taken:
+1. User disabled protection mode on SSH addon
+2. Ran: `docker inspect homeassistant | grep SUPERVISOR_TOKEN`
+3. Saved token to `/config/.ha_supervisor_admin_token`
+4. Claude now has full Supervisor API access including logs
+
+### Updated Files:
+- `/config/.ha_supervisor_admin_token` - Admin token (chmod 600)
+- `/config/CLAUDE.md` - Added Supervisor API documentation
+
+### Verification:
+```bash
+ADMIN_TOKEN=$(cat /config/.ha_supervisor_admin_token)
+curl -s -H "Authorization: Bearer $ADMIN_TOKEN" "http://supervisor/supervisor/logs" | head -20
+# Returns full supervisor logs - SUCCESS
+```
+
+---
+
+## Original Follow-up Items (Now Resolved)
 
 ### Options for Resolving Log Access
 
