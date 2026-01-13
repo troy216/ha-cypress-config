@@ -23,7 +23,7 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
 - **Host:** `http://192.168.1.2:8123`
 - **API Token:** `/config/.ha_token`
 - **Container:** Isolated Docker (Alpine Linux); only `/data/` and `/config/` persist across restarts
-- **Tools:** git, jq, yq install on startup via `/data/init-tools.sh`; if unavailable, run `source /data/init-tools.sh`
+- **Tools:** git, jq, yq, gh (GitHub CLI) install on startup via `/data/init-tools.sh`; if unavailable, run `source /data/init-tools.sh`
 
 ## Directives
 
@@ -67,6 +67,38 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
 - Never force push or rewrite history without explicit user request
 - Always report when commits/pushes are made (include commit hash and summary)
 - Repository: `https://github.com/troy216/ha-cypress-config.git` (branch: main)
+
+### GitHub CLI (gh)
+The `gh` CLI is installed via `/data/init-tools.sh` for GitHub operations (issues, PRs, etc.).
+
+**Authentication:** Use the stored token via environment variable (do NOT use `gh auth login`):
+```bash
+export GH_TOKEN=$(cat /data/home/.github_token)
+```
+
+**Creating issues:**
+```bash
+export GH_TOKEN=$(cat /data/home/.github_token)
+gh issue create --title "Issue title" --body "Issue body"
+```
+
+**Listing issues:**
+```bash
+export GH_TOKEN=$(cat /data/home/.github_token)
+gh issue list
+```
+
+**If gh commands fail with scope errors**, use the GitHub API directly:
+```bash
+GH_TOKEN=$(cat /data/home/.github_token)
+curl -s -X POST \
+  -H "Authorization: token $GH_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/troy216/ha-cypress-config/issues \
+  -d '{"title": "Issue title", "body": "Issue body"}'
+```
+
+**Note:** The token at `/data/home/.github_token` may have limited scopes. The direct API approach works for basic operations (issues, comments) even without `read:org` scope.
 
 ### Session Reports
 - Generate session report before any git commit using `/save-session`
