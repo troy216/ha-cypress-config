@@ -87,9 +87,13 @@ Generate a comprehensive session report documenting this conversation's activiti
    - For System: documentation, tooling, or process improvements
    ```
 
-6. **Stage the report**: Run `git add /config/history/<session-name>/`
+6. **Commit and push**:
+   - Stage all current changes: `git add -A`
+   - Commit with message: `Session report: <session-name>`
+   - Push to origin: `git push origin main`
+   - Report commit hash and push status to user
 
-7. **Inform user**: Confirm report location and summarize any issues documented.
+7. **Inform user**: Confirm report location, commit hash, and summarize any issues documented.
 
 ## Important
 - Be thorough and honest in issue analysis
