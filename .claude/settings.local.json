@@ -5,7 +5,10 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:community.home-assistant.io)",
-      "WebFetch(domain:api.github.com)"
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:developers.home-assistant.io)",
+      "WebFetch(domain:cli.github.com)",
+      "WebFetch(domain:pkgs.alpinelinux.org)"
     ]
   },
   "disabledMcpjsonServers": [
