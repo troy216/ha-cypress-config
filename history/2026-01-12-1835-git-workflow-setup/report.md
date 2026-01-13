@@ -25,5 +25,7 @@ Established Claude Terminal as a fully-functional development environment with g
 
 ## Notes
 - Tools reinstall in ~2-3 seconds using APK cache after container restart
-- Two GitHub repos exist: `ha-cypress` and `ha-cypress-config` — using the latter
 - Co-author format: `Co-Authored-By: Claude <claude@anthropic.com>`
+
+## Updates (same session)
+- `CLAUDE.md` - Added Session Start directive: check GitHub for updates, describe changes, ask before pulling; added container context to Environment; clarified "local is authoritative" in Git Workflow
