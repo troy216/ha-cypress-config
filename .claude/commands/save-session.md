@@ -1,6 +1,6 @@
 # Save Session Report
 
-Generate a session report summarizing this conversation's activities.
+Generate a comprehensive session report documenting this conversation's activities, decisions, and any issues or inefficiencies.
 
 ## Instructions
 
@@ -8,39 +8,91 @@ Generate a session report summarizing this conversation's activities.
 
 2. **Check for existing session**: Look in `/config/history/` for a folder starting with today's date. If this session already has a report, update it instead of creating a new folder.
 
-3. **Create session folder**: `/config/history/<session-name>/`
+3. **Create session folder structure**:
+   ```
+   /config/history/<session-name>/
+   ├── report.md              # Main detailed report
+   └── issues/                # Issue analysis files (if any)
+       ├── 01-issue-name.md
+       ├── 02-issue-name.md
+       └── ...
+   ```
 
-4. **Generate `report.md`** with standard detail (15-25 lines):
+4. **Generate `report.md`** with comprehensive detail:
    ```markdown
    # Session Report: <summary>
 
    **Date:** YYYY-MM-DD HH:MM
-   **Duration:** ~X minutes (estimated from conversation length)
+   **Duration:** ~X minutes (estimated)
 
    ## Summary
-   2-3 sentences describing what was accomplished.
+   Detailed description of what was accomplished, context, and outcomes.
+
+   ## Goals
+   - What the user wanted to achieve
+   - Any evolving requirements during the session
 
    ## Changes Made
-   - path/to/file1 - brief description
-   - path/to/file2 - brief description
+   For each file, provide:
+   - Full path
+   - What was changed and why
+   - Key code/config snippets if relevant
 
    ## Key Decisions
-   - Decision 1 with brief rationale
-   - Decision 2 with brief rationale
+   For each decision:
+   - What was decided
+   - Alternatives considered
+   - Rationale for the choice
 
-   ## Notes
-   Any issues encountered, follow-up items, or context for future sessions.
+   ## Technical Details
+   - Commands run
+   - Configuration details
+   - Architecture decisions
+
+   ## Issues Encountered
+   List issues with links to detailed analysis in issues/ folder:
+   - [Issue 1: Brief description](issues/01-issue-name.md)
+   - [Issue 2: Brief description](issues/02-issue-name.md)
+
+   ## Follow-up Items
+   - Outstanding tasks
+   - Future considerations
+   - Open questions
    ```
 
-5. **For extensive changes**, create additional files:
-   - `files-changed.md` - detailed list with diffs if helpful
-   - `decisions.md` - extended discussion of key decisions
+5. **Create issue files** in `issues/` folder for each problem encountered:
+   ```markdown
+   # Issue: <descriptive name>
+
+   ## What Happened
+   Describe the issue, mistake, rabbit hole, or inefficiency.
+
+   ## Impact
+   Time wasted, confusion caused, or other consequences.
+
+   ## Root Cause
+   Why did this happen? Was it:
+   - Claude mistake/assumption?
+   - User miscommunication?
+   - Missing information?
+   - Tool/environment limitation?
+
+   ## Resolution
+   How was it resolved?
+
+   ## Improvements
+   What could prevent this in the future?
+   - For Claude: behavior changes, better questions to ask
+   - For User: information to provide upfront, clearer instructions
+   - For System: documentation, tooling, or process improvements
+   ```
 
 6. **Stage the report**: Run `git add /config/history/<session-name>/`
 
-7. **Inform user**: Confirm report location and remind to commit when ready.
+7. **Inform user**: Confirm report location and summarize any issues documented.
 
 ## Important
-- Keep the main report.md brief and scannable
-- Reference detail files rather than bloating the main report
-- If updating an existing report, preserve previous content and append new activity
+- Be thorough and honest in issue analysis
+- Issues are learning opportunities, not blame assignment
+- Include enough detail that future sessions can learn from this one
+- If updating an existing report, preserve previous content and append/update as needed
