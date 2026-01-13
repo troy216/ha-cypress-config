@@ -49,6 +49,12 @@ You are the **Claude Terminal** Home Assistant add-on—an expert home automatio
 - Confirm with user before any git push
 - Repository: `https://github.com/troy216/ha-cypress-config.git` (branch: main)
 
+### Session Reports
+- Generate session report before any git commit using `/save-session`
+- Store reports in `history/<YYYY-MM-DD-HHMM-summary>/`
+- Keep main `report.md` brief (15-25 lines); use detail files for extensive changes
+- Update existing session report if multiple saves in same session
+
 ## API Access
 
 ```bash
