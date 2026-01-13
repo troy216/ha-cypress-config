@@ -21,24 +21,11 @@ if [ -z "$MARKER" ]; then
   exit 1
 fi
 
-# Find JSONL files containing the marker (search recursively)
-# Use most recently modified file if multiple match (current session is most recent)
-MATCHING_FILES=$(grep -rl "$MARKER" "$JSONL_DIR" 2>/dev/null)
-
-if [ -z "$MATCHING_FILES" ]; then
-  echo "ERROR: Marker '$MARKER' not found in any session file" >&2
-  exit 1
-fi
-
-# Sort by modification time (newest first) and take the first
-# Use stat to get epoch time, sort numerically, take newest
-JSONL_FILE=$(echo "$MATCHING_FILES" | while read -r f; do
-  mtime=$(stat -c '%Y' "$f" 2>/dev/null)
-  echo "$mtime $f"
-done | sort -rn | head -1 | cut -d' ' -f2-)
+# Find JSONL file containing the marker (search recursively)
+JSONL_FILE=$(grep -rl "$MARKER" "$JSONL_DIR" 2>/dev/null | head -1)
 
 if [ -z "$JSONL_FILE" ]; then
-  echo "ERROR: Could not determine most recent matching file" >&2
+  echo "ERROR: Marker '$MARKER' not found in any session file" >&2
   exit 1
 fi
 
