@@ -345,7 +345,7 @@
   triggers:
   - trigger: template
     value_template: >-
-      {{ state_attr('climate.bedroom', 'current_temperature') | float(0) >=
+      {{ states('sensor.bedroom_temperature_2') | float(0) >=
          states('sensor.bedroom_sensor_temperature') | float(0) + 3 }}
   conditions: []
   actions:
@@ -360,7 +360,7 @@
   triggers:
   - trigger: template
     value_template: >-
-      {{ state_attr('climate.bedroom', 'current_temperature') | float(0) <
+      {{ states('sensor.bedroom_temperature_2') | float(0) <
          states('sensor.bedroom_sensor_temperature') | float(0) + 3 }}
   conditions: []
   actions:
