@@ -341,14 +341,12 @@
   mode: single
 - id: '1768199536019'
   alias: Move heat on
-  description: ''
+  description: Turn on when bedroom AC temp is 3°F or more above bedroom sensor
   triggers:
-  - device_id: 8d6f8056a53c4b11f85e650330699c21
-    domain: climate
-    entity_id: 78959d29afbe90c3dd5ae5533de2013d
-    type: current_temperature_changed
-    trigger: device
-    above: 65
+  - trigger: template
+    value_template: >-
+      {{ state_attr('climate.bedroom', 'current_temperature') | float(0) >=
+         states('sensor.bedroom_sensor_temperature') | float(0) + 3 }}
   conditions: []
   actions:
   - type: turn_on
@@ -358,14 +356,12 @@
   mode: single
 - id: '1768200924978'
   alias: Move heat off
-  description: ''
+  description: Turn off when bedroom AC temp is less than 3°F above bedroom sensor
   triggers:
-  - device_id: 8d6f8056a53c4b11f85e650330699c21
-    domain: climate
-    entity_id: 78959d29afbe90c3dd5ae5533de2013d
-    type: current_temperature_changed
-    trigger: device
-    below: 65
+  - trigger: template
+    value_template: >-
+      {{ state_attr('climate.bedroom', 'current_temperature') | float(0) <
+         states('sensor.bedroom_sensor_temperature') | float(0) + 3 }}
   conditions: []
   actions:
   - type: turn_off
