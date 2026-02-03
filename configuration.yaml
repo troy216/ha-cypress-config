@@ -9,7 +9,7 @@ logbook:
 tts:
   - platform: google_translate
 
-automation: !include automations.yaml
+automation: !include_dir_merge_list automations/
 ios: !include ios.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml

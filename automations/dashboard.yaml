@@ -1,0 +1,8 @@
+- id: '1738691576022'
+  alias: Office Dashboard Charging Controller
+  description: ''
+  use_blueprint:
+    path: homeassistant/custom/charging_controller.yaml
+    input:
+      battery_sensor: sensor.dashboard_1_battery_level
+      relay_switch: switch.wall_relays_dashboard_office
