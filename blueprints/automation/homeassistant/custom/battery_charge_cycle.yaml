@@ -11,8 +11,13 @@
 # means of the AC current over different time windows (1h and 4h). While
 # batteries are actively charging, the 1h mean (tracking recent, lower
 # current) diverges from the 4h mean (which includes older, higher readings).
-# When the curve flattens (batteries full), both means converge. The
-# automation detects this convergence and stops charging.
+# When the curve flattens (batteries full), both means converge.
+#
+# Convergence is measured as a ratio: min(1h, 4h) / max(1h, 4h). This is
+# dimensionless (0 to 1) and self-scaling -- it works regardless of the
+# absolute current level. A ratio of 0.95 means the two averages are within
+# 5% of each other. From observed data: the ratio is ~0.83 at hour 8
+# (still charging), ~0.95 at hour 10, and >0.97 by hour 12 (flat).
 #
 # WHY SLOPE INSTEAD OF A THRESHOLD:
 # The steady-state current (~0.76A in our setup) includes charger overhead
@@ -136,21 +141,21 @@ blueprint:
           max: 72
           unit_of_measurement: hours
 
-    flatness_threshold:
-      name: Flatness Threshold
+    flatness_ratio:
+      name: Flatness Ratio
       description: >
-        Maximum difference (in amps) between the short and long rolling
-        averages to consider the curve "flat". Based on noise analysis:
-        the standard deviation of the difference between 1h and 4h means
-        is ~0.01A, so 0.03A (3 sigma) provides confident detection while
-        avoiding false positives.
-      default: 0.03
+        Ratio threshold for declaring the charging curve "flat". Computed
+        as min(1h_mean, 4h_mean) / max(1h_mean, 4h_mean). When the two
+        rolling averages converge (ratio approaches 1.0), the current is
+        no longer declining. A value of 0.95 means "the averages are
+        within 5% of each other". This is dimensionless and self-scaling,
+        so it works regardless of the absolute current level.
+      default: 0.95
       selector:
         number:
-          min: 0.005
-          max: 0.5
-          step: 0.005
-          unit_of_measurement: A
+          min: 0.5
+          max: 1.0
+          step: 0.01
 
     min_current_floor:
       name: Minimum Current Floor
@@ -198,7 +203,7 @@ variables:
   schedule_days: !input schedule_days
   short_avg_entity: !input current_short_avg
   long_avg_entity: !input current_long_avg
-  flatness_threshold: !input flatness_threshold
+  flatness_ratio: !input flatness_ratio
   min_charge_hours: !input min_charge_hours
   max_charge_hours: !input max_charge_hours
   min_current_floor: !input min_current_floor
@@ -247,8 +252,9 @@ action:
             {% set short_val = short_state | float(0) %}
             {% set long_val = long_state | float(0) %}
             {% set hours = ((as_timestamp(now()) - charge_start_ts) / 3600) %}
+            {% set ratio = ([short_val, long_val] | min) / ([short_val, long_val] | max) if ([short_val, long_val] | max) > 0 else 0 %}
             {% set is_flat = available
-                         and (short_val - long_val) | abs < flatness_threshold
+                         and ratio > flatness_ratio
                          and short_val > min_current_floor %}
             {{ (hours >= min_charge_hours and is_flat) or hours >= max_charge_hours }}
 
@@ -276,5 +282,5 @@ action:
         {% else %}
           Charge complete after {{ final_hours }}h.
           Final current: {{ short_final }}A (1h avg) / {{ long_final }}A (4h avg).
-          Curve flattened within {{ flatness_threshold }}A tolerance.
+          Convergence ratio: {{ (([short_final | float, long_final | float] | min) / ([short_final | float, long_final | float] | max)) | round(3) }}.
         {% endif %}

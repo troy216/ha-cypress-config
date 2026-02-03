@@ -575,10 +575,10 @@
   alias: 'Battery: Scheduled Charge Cycle'
   description: >
     Charges FLA batteries on Mon/Thu at 6 AM. Stops when the current draw
-    curve flattens (1h and 4h rolling averages converge within 0.03A),
-    indicating batteries are at equilibrium with the 13.3V charger.
-    Minimum 12h prevents false stops during the slow-decline phase.
-    Maximum 24h is a safety cutoff.
+    curve flattens (1h and 4h rolling averages converge to within 5% of
+    each other, ratio > 0.95), indicating batteries are at equilibrium
+    with the 13.3V charger. Minimum 12h prevents false stops during the
+    slow-decline phase. Maximum 24h is a safety cutoff.
   use_blueprint:
     path: homeassistant/custom/battery_charge_cycle.yaml
     input:
@@ -591,7 +591,7 @@
       start_time: '06:00:00'
       min_charge_hours: 12
       max_charge_hours: 24
-      flatness_threshold: 0.03
+      flatness_ratio: 0.95
       min_current_floor: 0.5
       notify_service: notify.mobile_app_troys_iphone
 - id: '1770100000002'
@@ -670,8 +670,10 @@
           {% set available = short not in ['unknown', 'unavailable']
                          and long not in ['unknown', 'unavailable'] %}
           {% if available %}
-            {{ (short | float - long | float) | abs < 0.03
-               and short | float > 0.5 }}
+            {% set s = short | float %}
+            {% set l = long | float %}
+            {% set ratio = ([s, l] | min) / ([s, l] | max) if ([s, l] | max) > 0 else 0 %}
+            {{ ratio > 0.95 and s > 0.5 }}
           {% else %}
             {{ false }}
           {% endif %}
