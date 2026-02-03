@@ -53,69 +53,9 @@ panel_custom:
 
 mqtt:
 
-template:
-  - cover:
-      - name: "Garage Door"
-        unique_id: garage_door
-        state: >
-          {% if is_state('binary_sensor.garage_door_state', 'on') %}
-            open
-          {% else %}
-            closed
-          {% endif %}
-        open_cover:
-          - action: switch.turn_on
-            target:
-              entity_id: switch.garage_door_relay
-        close_cover:
-          - action: switch.turn_on
-            target:
-              entity_id: switch.garage_door_relay
-        stop_cover:
-          - action: switch.turn_off
-            target:
-              entity_id: switch.garage_door_relay
-        icon: >
-          {% if is_state('binary_sensor.garage_door_state', 'on') %}
-            mdi:garage-open
-          {% else %}
-            mdi:garage
-          {% endif %}
+template: !include includes/template.yaml
 
-climate:
-  - platform: climate_template
-    name: Office Thermostat
-    modes:
-      - "off"
-      - "auto"
-    min_temp_template: "{{ state_attr('climate.office_hvac_air_conditioner','min_temp') | float }}"
-    max_temp_template: "{{ state_attr('climate.office_hvac_air_conditioner','max_temp') | float }}"
-    current_temperature_template: "{{ states('sensor.office_temperature') | float }}" # External temperature sensor
-    hvac_mode_template: >
-      {% if is_state('climate.office_hvac_air_conditioner', 'off') %}
-        off
-      {% else %}
-        auto
-      {% endif %}
-    set_temperature:
-      - service: climate.set_temperature
-        target:
-          entity_id: climate.office_hvac_air_conditioner
-        data:
-          temperature: >
-            {% set external_temp = states('sensor.office_temperature') | float %}
-            {% set internal_temp = state_attr('climate.office_hvac_air_conditioner', 'current_temperature') | float %}
-            {% set target_temp = temperature | float %}
-            {{ internal_temp + (target_temp - external_temp) }}
-    set_hvac_mode:
-      service: >
-        {% if hvac_mode == 'off' %}
-          climate.turn_off
-        {% elif hvac_mode == 'auto' %}
-          climate.turn_on
-        {% endif %}
-      target:
-        entity_id: climate.office_hvac_air_conditioner
+climate: !include includes/climate.yaml
 
 logger:
   default: info # Or your existing default log level
@@ -125,29 +65,7 @@ logger:
 
 zha_toolkit:
 
-# Statistics sensors for battery charger current monitoring.
-# Used by the battery charge cycle automation to detect when the charging
-# curve has flattened (batteries fully charged) by comparing short-window
-# and long-window rolling averages. When the two converge, the current
-# is no longer declining and charging can stop.
-sensor:
-  - platform: statistics
-    name: "Battery Charger Current 1h Mean"
-    unique_id: battery_charger_current_1h_mean
-    entity_id: sensor.zp_garage_current
-    state_characteristic: mean
-    sampling_size: 120
-    max_age:
-      hours: 1
-
-  - platform: statistics
-    name: "Battery Charger Current 4h Mean"
-    unique_id: battery_charger_current_4h_mean
-    entity_id: sensor.zp_garage_current
-    state_characteristic: mean
-    sampling_size: 480
-    max_age:
-      hours: 4
+sensor: !include includes/sensors.yaml
 
 # Shell commands for git operations
 shell_command:
