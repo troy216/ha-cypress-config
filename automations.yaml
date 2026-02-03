@@ -354,6 +354,32 @@
     entity_id: 7b6575f5396e01f68bcab3e3a647afe9
     domain: switch
   mode: single
+- id: '1738700800001'
+  alias: Grow Light Ceiling ON at 8am
+  description: Turn on grow light ceiling every day at 8:00 AM
+  triggers:
+  - trigger: time
+    at: '08:00:00'
+  conditions: []
+  actions:
+  - action: switch.turn_on
+    target:
+      entity_id: switch.grow_light_ceiling
+    data: {}
+  mode: single
+- id: '1738700800002'
+  alias: Grow Light Ceiling OFF at midnight
+  description: Turn off grow light ceiling every day at midnight
+  triggers:
+  - trigger: time
+    at: '00:00:00'
+  conditions: []
+  actions:
+  - action: switch.turn_off
+    target:
+      entity_id: switch.grow_light_ceiling
+    data: {}
+  mode: single
 - id: '1768200924978'
   alias: Move heat off
   description: Turn off when bedroom AC temp is less than 3°F above bedroom sensor
