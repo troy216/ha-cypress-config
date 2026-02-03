@@ -443,3 +443,119 @@
     data:
       fan_mode: auto
   mode: single
+- id: '1738700800010'
+  alias: Humidifier ON at 12:30 AM
+  description: Turn on humidifier via IR sequence with 1-second delays between commands
+  triggers:
+  - trigger: time
+    at: '00:30:00'
+  conditions: []
+  actions:
+  - action: switch.turn_off
+    target:
+      entity_id: switch.humidifier_plug
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.humidifier_plug
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_power
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_increase
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_increase
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_increase
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_rh
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_rh
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_rh
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_rh
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_rh
+    data: {}
+  mode: single
+- id: '1738700800011'
+  alias: Humidifier OFF at 8 AM
+  description: Turn off humidifier by cutting power to the plug
+  triggers:
+  - trigger: time
+    at: '08:00:00'
+  conditions: []
+  actions:
+  - action: switch.turn_off
+    target:
+      entity_id: switch.humidifier_plug
+    data: {}
+  mode: single
