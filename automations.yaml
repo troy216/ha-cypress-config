@@ -395,3 +395,51 @@
     entity_id: 7b6575f5396e01f68bcab3e3a647afe9
     domain: switch
   mode: single
+- id: '1770090987001'
+  alias: Grow AC Daytime Cool
+  description: Set Grow AC to cool at 75°F with auto fan at 8 AM
+  triggers:
+  - trigger: time
+    at: '08:00:00'
+  conditions: []
+  actions:
+  - action: climate.set_hvac_mode
+    target:
+      entity_id: climate.grow_ac
+    data:
+      hvac_mode: cool
+  - action: climate.set_temperature
+    target:
+      entity_id: climate.grow_ac
+    data:
+      temperature: 75
+  - action: climate.set_fan_mode
+    target:
+      entity_id: climate.grow_ac
+    data:
+      fan_mode: auto
+  mode: single
+- id: '1770090987002'
+  alias: Grow AC Nighttime Cool
+  description: Set Grow AC to cool at 62°F with auto fan at 10 PM
+  triggers:
+  - trigger: time
+    at: '22:00:00'
+  conditions: []
+  actions:
+  - action: climate.set_hvac_mode
+    target:
+      entity_id: climate.grow_ac
+    data:
+      hvac_mode: cool
+  - action: climate.set_temperature
+    target:
+      entity_id: climate.grow_ac
+    data:
+      temperature: 62
+  - action: climate.set_fan_mode
+    target:
+      entity_id: climate.grow_ac
+    data:
+      fan_mode: auto
+  mode: single
