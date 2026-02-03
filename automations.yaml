@@ -344,9 +344,8 @@
   description: Turn on when bedroom AC temp is 3°F or more above bedroom sensor
   triggers:
   - trigger: template
-    value_template: >-
-      {{ states('sensor.bedroom_temperature_2') | float(0) >=
-         states('sensor.bedroom_sensor_temperature') | float(0) + 3 }}
+    value_template: "{{ states('sensor.bedroom_temperature_2') | float(0) >=\n   states('sensor.bedroom_sensor_temperature')
+      | float(0) + 3 }}"
   conditions: []
   actions:
   - type: turn_on
@@ -359,7 +358,7 @@
   description: Turn on grow light ceiling every day at 8:00 AM
   triggers:
   - trigger: time
-    at: '08:00:00'
+    at: 08:00:00
   conditions: []
   actions:
   - action: switch.turn_on
@@ -372,7 +371,7 @@
   description: Turn off grow light ceiling every day at midnight
   triggers:
   - trigger: time
-    at: '00:00:00'
+    at: 00:00:00
   conditions: []
   actions:
   - action: switch.turn_off
@@ -385,9 +384,8 @@
   description: Turn off when bedroom AC temp is less than 3°F above bedroom sensor
   triggers:
   - trigger: template
-    value_template: >-
-      {{ states('sensor.bedroom_temperature_2') | float(0) <
-         states('sensor.bedroom_sensor_temperature') | float(0) + 3 }}
+    value_template: "{{ states('sensor.bedroom_temperature_2') | float(0) <\n   states('sensor.bedroom_sensor_temperature')
+      | float(0) + 3 }}"
   conditions: []
   actions:
   - type: turn_off
@@ -400,7 +398,7 @@
   description: Set Grow AC to cool at 75°F with auto fan at 8 AM
   triggers:
   - trigger: time
-    at: '08:00:00'
+    at: 08:00:00
   conditions: []
   actions:
   - action: climate.set_hvac_mode
@@ -448,7 +446,7 @@
   description: Turn on humidifier via IR sequence with 1-second delays between commands
   triggers:
   - trigger: time
-    at: '00:30:00'
+    at: 00:30:00
   conditions: []
   actions:
   - action: switch.turn_off
@@ -551,7 +549,7 @@
   description: Turn off humidifier by cutting power to the plug
   triggers:
   - trigger: time
-    at: '08:00:00'
+    at: 08:00:00
   conditions: []
   actions:
   - action: switch.turn_off
@@ -559,26 +557,15 @@
       entity_id: switch.humidifier_plug
     data: {}
   mode: single
-# --- Battery Charger Automations ---
-#
-# These three automations manage periodic FLA battery charging via the
-# ZP Garage zigbee outlet. The charger is a constant-voltage 13.3V unit
-# charging 2x4x12V marine batteries with active voltage balancers.
-#
-# The main automation (blueprint) handles the scheduled charge cycle with
-# slope-based stop detection. The watchdog and recovery automations handle
-# edge cases (HA restart mid-cycle, orphaned outlet state).
-#
-# See the blueprint file for detailed explanation of the slope detection
-# algorithm: blueprints/automation/homeassistant/custom/battery_charge_cycle.yaml
 - id: '1770100000001'
   alias: 'Battery: Scheduled Charge Cycle'
-  description: >
-    Charges FLA batteries on Mon/Thu at 6 AM. Stops when the current draw
-    curve flattens (1h and 4h rolling averages converge to within 5% of
-    each other, ratio > 0.95), indicating batteries are at equilibrium
-    with the 13.3V charger. Minimum 12h prevents false stops during the
-    slow-decline phase. Maximum 24h is a safety cutoff.
+  description: 'Charges FLA batteries on Mon/Thu at 6 AM. Stops when the current draw
+    curve flattens (1h and 4h rolling averages converge to within 5% of each other,
+    ratio > 0.95), indicating batteries are at equilibrium with the 13.3V charger.
+    Minimum 12h prevents false stops during the slow-decline phase. Maximum 24h is
+    a safety cutoff.
+
+    '
   use_blueprint:
     path: homeassistant/custom/battery_charge_cycle.yaml
     input:
@@ -586,28 +573,32 @@
       current_short_avg: sensor.battery_charger_current_1h_mean
       current_long_avg: sensor.battery_charger_current_4h_mean
       schedule_days:
-        - mon
-        - thu
-      start_time: '06:00:00'
-      min_charge_hours: 12
-      max_charge_hours: 24
-      flatness_ratio: 0.95
+      - tue
+      - fri
+      start_time: 08:00:00
+      min_charge_hours: 1
+      max_charge_hours: 48
+      flatness_ratio: 0.98
       min_current_floor: 0.5
       notify_service: notify.mobile_app_troys_iphone
 - id: '1770100000002'
   alias: 'Battery: Charge Safety Watchdog'
-  description: >
-    Safety net for HA restarts mid-charge. If the outlet has been on
-    continuously for 26 hours, something went wrong (the main automation's
-    repeat loop was likely lost during an HA restart). Turn off and alert.
-    Set to 26h (slightly past the 24h max) to avoid interfering with
-    normal charge cycles.
+  description: 'Safety net for HA restarts mid-charge. If the outlet has been on continuously
+    for 26 hours, something went wrong (the main automation''s repeat loop was likely
+    lost during an HA restart). Turn off and alert. Set to 26h (slightly past the
+    24h max) to avoid interfering with normal charge cycles.
+
+    '
   triggers:
   - trigger: state
-    entity_id: switch.zp_garage_outlet
-    to: 'on'
+    entity_id:
+    - switch.zp_garage_outlet
+    to:
+    - 'on'
     for:
-      hours: 26
+      hours: 50
+      minutes: 0
+      seconds: 0
   conditions: []
   actions:
   - action: switch.turn_off
@@ -615,20 +606,20 @@
       entity_id: switch.zp_garage_outlet
   - action: notify.mobile_app_troys_iphone
     data:
-      title: 'Battery Charger - WATCHDOG'
-      message: >-
-        Outlet was on for 26+ hours. Turned off as safety measure.
-        This likely means HA restarted during a charge cycle.
+      title: Battery Charger - WATCHDOG
+      message: Outlet was on for 26+ hours. Turned off as safety measure. This likely
+        means HA restarted during a charge cycle.
   mode: single
 - id: '1770100000003'
   alias: 'Battery: HA Restart Recovery'
-  description: >
-    If HA restarts while a charge cycle is in progress, the main
-    automation's repeat loop dies but the outlet stays on. This automation
-    triggers on HA start, waits for the statistics sensors to populate
-    (4.5 hours), then monitors for flatness. If the curve is already flat
-    (charging was nearly done), it turns off the outlet. If not, it
-    continues monitoring hourly until flat or until the watchdog takes over.
+  description: 'If HA restarts while a charge cycle is in progress, the main automation''s
+    repeat loop dies but the outlet stays on. This automation triggers on HA start,
+    waits for the statistics sensors to populate (4.5 hours), then monitors for flatness.
+    If the curve is already flat (charging was nearly done), it turns off the outlet.
+    If not, it continues monitoring hourly until flat or until the watchdog takes
+    over.
+
+    '
   triggers:
   - trigger: homeassistant
     event: start
@@ -639,22 +630,15 @@
   actions:
   - action: notify.mobile_app_troys_iphone
     data:
-      title: 'Battery Charger'
-      message: >-
-        HA restarted while charger was on. Monitoring will resume
-        after statistics sensors repopulate (~4.5 hours).
-  # Wait for the 4h statistics sensor to have a full window of data.
-  # Without this, both sensors report "unknown" and we can't detect
-  # flatness reliably.
+      title: Battery Charger
+      message: HA restarted while charger was on. Monitoring will resume after statistics
+        sensors repopulate (~4.5 hours).
   - delay:
       hours: 4
       minutes: 30
-  # If outlet was turned off during the wait (manually or by watchdog),
-  # stop here.
   - condition: state
     entity_id: switch.zp_garage_outlet
     state: 'on'
-  # Now monitor hourly for flatness, same logic as the main blueprint.
   - repeat:
       sequence:
       - delay:
@@ -664,19 +648,13 @@
         state: 'on'
       until:
       - condition: template
-        value_template: >-
-          {% set short = states('sensor.battery_charger_current_1h_mean') %}
-          {% set long = states('sensor.battery_charger_current_4h_mean') %}
-          {% set available = short not in ['unknown', 'unavailable']
-                         and long not in ['unknown', 'unavailable'] %}
-          {% if available %}
-            {% set s = short | float %}
-            {% set l = long | float %}
-            {% set ratio = ([s, l] | min) / ([s, l] | max) if ([s, l] | max) > 0 else 0 %}
-            {{ ratio > 0.95 and s > 0.5 }}
-          {% else %}
-            {{ false }}
-          {% endif %}
+        value_template: "{% set short = states('sensor.battery_charger_current_1h_mean')
+          %} {% set long = states('sensor.battery_charger_current_4h_mean') %} {%
+          set available = short not in ['unknown', 'unavailable']\n               and
+          long not in ['unknown', 'unavailable'] %}\n{% if available %}\n  {% set
+          s = short | float %}\n  {% set l = long | float %}\n  {% set ratio = ([s,
+          l] | min) / ([s, l] | max) if ([s, l] | max) > 0 else 0 %}\n  {{ ratio >
+          0.95 and s > 0.5 }}\n{% else %}\n  {{ false }}\n{% endif %}"
   - condition: state
     entity_id: switch.zp_garage_outlet
     state: 'on'
@@ -685,9 +663,8 @@
       entity_id: switch.zp_garage_outlet
   - action: notify.mobile_app_troys_iphone
     data:
-      title: 'Battery Charger'
-      message: >-
-        Post-restart recovery complete. Charger turned off -- current
-        curve was flat (1h avg: {{ states('sensor.battery_charger_current_1h_mean') }}A,
-        4h avg: {{ states('sensor.battery_charger_current_4h_mean') }}A).
+      title: Battery Charger
+      message: 'Post-restart recovery complete. Charger turned off -- current curve
+        was flat (1h avg: {{ states(''sensor.battery_charger_current_1h_mean'') }}A,
+        4h avg: {{ states(''sensor.battery_charger_current_4h_mean'') }}A).'
   mode: single
