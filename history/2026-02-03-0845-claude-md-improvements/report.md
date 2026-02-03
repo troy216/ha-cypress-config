@@ -3,7 +3,7 @@
 **Date:** 2026-02-03 08:45
 **Session ID:** a75fc33d-6471-4b52-a297-de315c145f7f
 **Marker:** SESS-7edfe7a40799
-**Duration:** ~45 minutes (estimated)
+**Duration:** ~60 minutes (estimated)
 
 ## Summary
 
@@ -83,6 +83,12 @@ curl -s -o /tmp/test.json -w "%{http_code}" -H "Authorization: Bearer $SUPERVISO
 ## Issues Encountered
 
 - [Issue 1: Supervisor proxy token discovery](issues/01-supervisor-proxy-token.md)
+
+## Post-Implementation Verification
+
+User confirmed that both token sources (`$SUPERVISOR_TOKEN` env var and `/config/.ha_supervisor_admin_token` file) are documented clearly enough for new sessions to know which to use and when. The API Access section distinguishes them by use case:
+- `$SUPERVISOR_TOKEN` for HA state/service access via Supervisor proxy
+- Admin token file for privileged Supervisor operations (logs, addon management)
 
 ## Follow-up Items
 
