@@ -1,13 +1,13 @@
-# Session Report: CLAUDE.md Improvements from Session History
+# Session Report: CLAUDE.md & README.md Improvements
 
 **Date:** 2026-02-03 08:45
 **Session ID:** a75fc33d-6471-4b52-a297-de315c145f7f
 **Marker:** SESS-7edfe7a40799
-**Duration:** ~60 minutes (estimated)
+**Duration:** ~90 minutes (estimated)
 
 ## Summary
 
-Conducted a comprehensive review of all 15 session reports and 20 issue files in `/config/history/` to identify recurring mistakes, inefficiencies, and missing directives. Used subtask agents to explore the history, then designed, reviewed, refined, and implemented improvements to CLAUDE.md. The review phase included a critical analysis that trimmed the proposed changes from ~40 lines to ~22 net new lines by removing one-off rules and preferring abstract directives that cover whole classes of issues.
+Two-part session: (1) Comprehensive review of all 15 session reports and 20 issue files to identify recurring mistakes and add preventive directives to CLAUDE.md. The review phase included critical analysis that trimmed proposals from ~40 to ~22 net new lines by preferring abstract rules over specific ones. (2) Audited README.md against actual project state, fixed 4 discrepancies: incomplete integration table, missing directories, incorrect API reference, and missing security-sensitive file in "never commit" list.
 
 ## Goals
 
@@ -16,6 +16,8 @@ Conducted a comprehensive review of all 15 session reports and 20 issue files in
 - Propose concrete CLAUDE.md improvements
 - Critically review proposals for value vs context cost (CLAUDE.md is loaded every session)
 - Implement approved changes
+- Audit README.md for consistency with current project state
+- Fix any discrepancies found
 
 ## Changes Made
 
@@ -84,14 +86,38 @@ curl -s -o /tmp/test.json -w "%{http_code}" -H "Authorization: Bearer $SUPERVISO
 
 - [Issue 1: Supervisor proxy token discovery](issues/01-supervisor-proxy-token.md)
 
-## Post-Implementation Verification
+## Post-Implementation Verification (CLAUDE.md)
 
 User confirmed that both token sources (`$SUPERVISOR_TOKEN` env var and `/config/.ha_supervisor_admin_token` file) are documented clearly enough for new sessions to know which to use and when. The API Access section distinguishes them by use case:
 - `$SUPERVISOR_TOKEN` for HA state/service access via Supervisor proxy
 - Admin token file for privileged Supervisor operations (logs, addon management)
+
+---
+
+## Part 2: README.md Audit and Update
+
+### `/config/README.md` (137 -> 157 lines)
+
+**Change 1: Integration table completed**
+- Was listing 6 of 13 integrations. Added 7 missing: ble_adv (v1.8.3), cielo_home (v1.8.9), climate_template (v0.8.0), hass_agent (2022.11.9), mcp_server_http_transport (v1.0.0), oidc_provider (v1.0.0), webrtc (v3.6.1)
+- All 6 previously listed versions verified still accurate
+
+**Change 2: Directory structure updated**
+- Added `scripts/` (utility scripts like find-session.sh) and `history/` (session reports and issue analysis)
+- Runtime/third-party dirs (www, node-red, tts, deps, tmp, glances, image) intentionally omitted
+
+**Change 3: API Reference rewritten**
+- Removed non-existent `/api/error_log` endpoint
+- Changed all endpoints from direct REST API paths to Supervisor proxy paths (`http://supervisor/core/api/...`)
+- Added note that REST API at `192.168.1.2:8123` is unreachable from container
+- Added Supervisor Admin API log endpoints table
+
+**Change 4: "Files to Never Commit" updated**
+- Added `.ha_supervisor_admin_token` — security-sensitive file already in `.gitignore` but missing from README
 
 ## Follow-up Items
 
 - Monitor whether the YAGNI principle and Problem-Solving Discipline rules actually reduce over-engineering and rabbit holes in future sessions
 - Consider whether the `.ha_token` line in Environment section should note it's only for HA REST API (which is unreachable) vs `$SUPERVISOR_TOKEN` for proxy access
 - The `**Host:**` line in Environment still shows `http://192.168.1.2:8123` — could be confusing since it's unreachable, but it documents the actual HA instance address for reference
+- Integration versions in README will drift over time as HACS updates components — consider a periodic review

@@ -25,6 +25,8 @@ This is a **Home Assistant installation** (v2026.1.0) with 13 custom integration
 ├── blueprints/                 # Reusable automation templates
 ├── esphome/                    # ESPHome device configs
 ├── shell/                      # Deployment scripts
+├── scripts/                    # Utility scripts (session lookup, etc.)
+├── history/                    # Session reports and issue analysis
 └── .storage/                   # HA runtime state (gitignored)
 ```
 
@@ -38,6 +40,13 @@ This is a **Home Assistant installation** (v2026.1.0) with 13 custom integration
 | tesla_custom | Tesla vehicle | 3.24.3 |
 | eufy_security | Security cameras | 8.2.2 |
 | zha_toolkit | Zigbee network tools | v1.1.24 |
+| ble_adv | BLE ADV ceiling fan/lamps | v1.8.3 |
+| cielo_home | Cielo Home HVAC control | 1.8.9 |
+| climate_template | Climate template platform | 0.8.0 |
+| hass_agent | HASS.Agent desktop bridge | 2022.11.9 |
+| mcp_server_http_transport | MCP Server (HTTP) | 1.0.0 |
+| oidc_provider | OIDC Provider | 1.0.0 |
+| webrtc | WebRTC Camera | v3.6.1 |
 
 ## Architecture Patterns
 
@@ -99,16 +108,26 @@ api_key: !secret my_api_key
 
 ## API Reference
 
+**Note:** The HA REST API at `http://192.168.1.2:8123` is unreachable from the Claude Terminal container. Access HA APIs via the Supervisor proxy using `$SUPERVISOR_TOKEN`:
+
+| Endpoint (via Supervisor proxy) | Description |
+|----------|-------------|
+| `http://supervisor/core/api/` | API status check |
+| `http://supervisor/core/api/config` | HA configuration info |
+| `http://supervisor/core/api/states` | All entity states |
+| `http://supervisor/core/api/states/<entity_id>` | Single entity state |
+| `http://supervisor/core/api/services/<domain>/<service>` | Call a service (POST) |
+| `http://supervisor/core/api/history/period/<timestamp>` | Historical data |
+| `http://supervisor/core/api/logbook/<timestamp>` | Logbook entries |
+
+**Supervisor Admin API** (uses admin token from `/config/.ha_supervisor_admin_token`):
+
 | Endpoint | Description |
 |----------|-------------|
-| `/api/` | API status check |
-| `/api/config` | HA configuration info |
-| `/api/states` | All entity states |
-| `/api/states/<entity_id>` | Single entity state |
-| `/api/services/<domain>/<service>` | Call a service (POST) |
-| `/api/error_log` | Error log contents |
-| `/api/history/period/<timestamp>` | Historical data |
-| `/api/logbook/<timestamp>` | Logbook entries |
+| `http://supervisor/core/logs` | HA Core logs |
+| `http://supervisor/supervisor/logs` | Supervisor logs |
+| `http://supervisor/addons/<slug>/logs` | Add-on logs |
+| `http://supervisor/host/logs` | Host/OS logs |
 
 ## Testing Changes
 
@@ -134,3 +153,4 @@ Per `.gitignore`:
 - `.storage/` - Runtime state
 - `*.db*` - SQLite databases
 - `.cloud/` - Cloud connection state
+- `.ha_supervisor_admin_token` - Supervisor admin credentials
