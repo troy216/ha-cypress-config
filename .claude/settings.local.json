@@ -13,7 +13,8 @@
       "Skill(save-session)",
       "WebFetch(domain:developer.chrome.com)",
       "WebFetch(domain:www.npmjs.com)",
-      "WebFetch(domain:chromedevtools.github.io)"
+      "WebFetch(domain:chromedevtools.github.io)",
+      "WebFetch(domain:www.home-assistant.io)"
     ]
   },
   "disabledMcpjsonServers": [

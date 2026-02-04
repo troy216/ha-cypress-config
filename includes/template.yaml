@@ -25,3 +25,42 @@
         {% else %}
           mdi:garage
         {% endif %}
+
+# Battery charge completeness sensor.
+# Compares two consecutive 5-minute windows of charger current to detect
+# when the charging curve has flattened. Ratio approaches 1.0 as charging
+# completes. Stores last 20 readings (~10 min at 30s intervals) and
+# splits into older/recent halves for comparison.
+- trigger:
+    - platform: state
+      entity_id: sensor.zp_garage_current
+  sensor:
+    - name: "Battery Charge Complete"
+      unique_id: battery_charge_complete
+      icon: mdi:battery-charging-100
+      state: >-
+        {% set reading = states('sensor.zp_garage_current') | float(none) %}
+        {% set prev = this.attributes.samples | default([], true) %}
+        {% set samples = (prev + [reading])[-20:] if reading is not none else prev %}
+        {% if samples | length >= 20 %}
+          {% set recent = samples[-10:] | sum / 10 %}
+          {% set older = samples[:10] | sum / 10 %}
+          {{ (([recent, older] | min) / ([recent, older] | max)) | round(4)
+             if [recent, older] | min > 0 else 0 }}
+        {% else %}
+          0
+        {% endif %}
+      attributes:
+        samples: >-
+          {% set reading = states('sensor.zp_garage_current') | float(none) %}
+          {% set prev = this.attributes.samples | default([], true) %}
+          {{ (prev + [reading])[-20:] if reading is not none else prev }}
+        current_avg: >-
+          {% set reading = states('sensor.zp_garage_current') | float(none) %}
+          {% set prev = this.attributes.samples | default([], true) %}
+          {% set samples = (prev + [reading])[-20:] if reading is not none else prev %}
+          {% if samples | length >= 10 %}
+            {{ (samples[-10:] | sum / (samples[-10:] | length)) | round(3) }}
+          {% else %}
+            {{ 0 }}
+          {% endif %}

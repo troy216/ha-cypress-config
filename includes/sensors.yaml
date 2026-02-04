@@ -1,22 +1,4 @@
-# Statistics sensors for battery charger current monitoring.
-# Used by the battery charge cycle automation to detect when the charging
-# curve has flattened (batteries fully charged) by comparing short-window
-# and long-window rolling averages. When the two converge, the current
-# is no longer declining and charging can stop.
-- platform: statistics
-  name: "Battery Charger Current 1h Mean"
-  unique_id: battery_charger_current_1h_mean
-  entity_id: sensor.zp_garage_current
-  state_characteristic: mean
-  sampling_size: 120
-  max_age:
-    hours: 1
-
-- platform: statistics
-  name: "Battery Charger Current 4h Mean"
-  unique_id: battery_charger_current_4h_mean
-  entity_id: sensor.zp_garage_current
-  state_characteristic: mean
-  sampling_size: 480
-  max_age:
-    hours: 4
+# Platform-based sensors.
+# Battery charger current monitoring has moved to includes/template.yaml
+# (trigger-based template sensor: sensor.battery_charge_complete).
+[]
