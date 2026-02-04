@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-04 10:04
 **Session ID:** ad2d3e66-2cf0-4370-99a1-16b79aed34e2
-**Duration:** ~45 minutes (estimated)
+**Duration:** ~60 minutes (estimated)
 
 ## Summary
 
@@ -119,3 +119,9 @@ The initial plan used HA's derivative integration with an A/min threshold. The u
 - **Consider tightening watchdog** from 50 hours — with minute-scale detection, 50h is very generous
 - **Old statistics sensor entities** may persist in HA's entity registry after removing from YAML — clean up via Settings > Entities if needed
 - **Future: ESP32 voltage sensor** for direct SOC monitoring (noted in previous session)
+
+## Git History
+
+| Commit | Description |
+|--------|-------------|
+| `6af5064` | Redesign battery charger to minute-scale flatness detection |
