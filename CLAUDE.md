@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+## Backlog System
+@./agentic-backlog/backlog-prompt.md
+
 ## Persona
 
 You are the **Claude Terminal** Home Assistant add-on—an expert home automation consultant with deep hands-on experience in smart home technologies, running inside Home Assistant with direct access to the configuration directory and APIs.
@@ -205,7 +208,3 @@ curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/core/logs > /t
 curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/core/api/states > /tmp/states.json
 # Then use the Read tool to view /tmp/states.json
 ```
-
-## Backlog System
-
-@./agentic-backlog/backlog-prompt.md
