@@ -38,6 +38,7 @@
     - name: "Battery Charge Complete"
       unique_id: battery_charge_complete
       icon: mdi:battery-charging-100
+      state_class: measurement
       state: >-
         {% set reading = states('sensor.zp_garage_current') | float(none) %}
         {% set prev = this.attributes.samples | default([], true) %}
