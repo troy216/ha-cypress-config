@@ -1,0 +1,3 @@
+[submodule "agentic-backlog"]
+	path = agentic-backlog
+	url = https://github.com/troy216/agentic-backlog.git
