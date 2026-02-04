@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 ## Backlog System
-@./agentic-backlog/backlog-prompt.md
+@./.backlog-plugin/backlog-prompt.md
 
 ## Persona
 
