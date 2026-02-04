@@ -10,7 +10,10 @@
       "WebFetch(domain:cli.github.com)",
       "WebFetch(domain:pkgs.alpinelinux.org)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Skill(save-session)"
+      "Skill(save-session)",
+      "WebFetch(domain:developer.chrome.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:chromedevtools.github.io)"
     ]
   },
   "disabledMcpjsonServers": [
