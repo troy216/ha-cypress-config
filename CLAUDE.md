@@ -205,3 +205,7 @@ curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/core/logs > /t
 curl -s -H "Authorization: Bearer $ADMIN_TOKEN" http://supervisor/core/api/states > /tmp/states.json
 # Then use the Read tool to view /tmp/states.json
 ```
+
+## Backlog System
+
+@./agentic-backlog/backlog-prompt.md
