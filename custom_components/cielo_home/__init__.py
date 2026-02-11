@@ -86,6 +86,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, entry: ConfigEntry, device_entry
+) -> bool:
+    """Allow device removal from the UI."""
+    return True
+
+
 async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
     """Handle options update."""
 
