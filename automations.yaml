@@ -1,0 +1,573 @@
+- id: '1770100000001'
+  alias: 'Battery: Scheduled Charge Cycle'
+  description: 'Charges FLA batteries on Tue/Fri at 8 AM. Stops when the ratio
+    of two consecutive 5-minute current windows exceeds 0.98, indicating the
+    charging curve has flattened and batteries are at equilibrium with the 13.3V
+    charger. Minimum 15 minutes allows the sensor to accumulate data. Maximum
+    48h is a safety cutoff.
+
+    '
+  use_blueprint:
+    path: homeassistant/custom/battery_charge_cycle.yaml
+    input:
+      charger_switch: switch.zp_garage_outlet
+      flatness_sensor: sensor.battery_charge_complete
+      schedule_days:
+      - tue
+      - fri
+      start_time: 08:00:00
+      min_charge_minutes: 15
+      max_charge_hours: 48
+      flatness_ratio: 0.98
+      min_current_floor: 0.5
+      notify_service: notify.mobile_app_troys_iphone
+- id: '1770100000002'
+  alias: 'Battery: Charge Safety Watchdog'
+  description: 'Independent safety net. If the outlet has been on continuously
+    for 50 hours, something went wrong. Turn off and alert.
+
+    '
+  triggers:
+  - trigger: state
+    entity_id:
+    - switch.zp_garage_outlet
+    to:
+    - 'on'
+    for:
+      hours: 50
+      minutes: 0
+      seconds: 0
+  conditions: []
+  actions:
+  - action: switch.turn_off
+    target:
+      entity_id: switch.zp_garage_outlet
+  - action: notify.mobile_app_troys_iphone
+    data:
+      title: Battery Charger - WATCHDOG
+      message: Outlet was on for 50+ hours. Turned off as safety measure.
+  mode: single
+- id: '1770100000003'
+  alias: 'Battery: HA Restart Recovery'
+  description: 'If HA restarts while a charge cycle is in progress, the main
+    automation''s repeat loop dies but the outlet stays on. This automation
+    triggers on HA start, waits 15 minutes for the flatness sensor to populate,
+    then monitors every 5 minutes. If the curve is flat, it turns off the outlet.
+    If not, it continues until flat or the watchdog takes over.
+
+    '
+  triggers:
+  - trigger: homeassistant
+    event: start
+  conditions:
+  - condition: state
+    entity_id: switch.zp_garage_outlet
+    state: 'on'
+  actions:
+  - action: notify.mobile_app_troys_iphone
+    data:
+      title: Battery Charger
+      message: >
+        HA restarted while charger was on. Monitoring will resume after
+        flatness sensor populates (~15 minutes).
+  - delay:
+      minutes: 15
+  - condition: state
+    entity_id: switch.zp_garage_outlet
+    state: 'on'
+  - repeat:
+      sequence:
+      - delay:
+          minutes: 5
+      - condition: state
+        entity_id: switch.zp_garage_outlet
+        state: 'on'
+      until:
+      - condition: template
+        value_template: >-
+          {% set ratio = states('sensor.battery_charge_complete') %}
+          {% set current_avg = state_attr('sensor.battery_charge_complete', 'current_avg') | float(0) %}
+          {% set available = ratio not in ['unknown', 'unavailable'] %}
+          {% if available %}
+            {{ (ratio | float(0)) > 0.98 and current_avg > 0.5 }}
+          {% else %}
+            {{ false }}
+          {% endif %}
+  - condition: state
+    entity_id: switch.zp_garage_outlet
+    state: 'on'
+  - action: switch.turn_off
+    target:
+      entity_id: switch.zp_garage_outlet
+  - action: notify.mobile_app_troys_iphone
+    data:
+      title: Battery Charger
+      message: >-
+        Post-restart recovery complete. Charger turned off -- current curve
+        was flat. Current avg: {{ state_attr('sensor.battery_charge_complete', 'current_avg') }}A,
+        Ratio: {{ states('sensor.battery_charge_complete') }}.
+  mode: single
+- id: '1732294050048'
+  alias: Office HVAC Update
+  description: Update heat pump
+  trigger:
+  - platform: state
+    entity_id: climate.office_hvac_air_conditioner
+    attribute: current_temperature
+  - platform: state
+    entity_id: climate.office_thermostat
+    attribute: current_temperature
+  - platform: state
+    entity_id: climate.office_thermostat
+    attribute: temperature
+  action:
+  - variables:
+      external_temp: '{{ states(''sensor.office_temperature'') | float }}'
+      internal_temp: '{{ state_attr(''climate.office_hvac_air_conditioner'', ''current_temperature'')
+        | float }}'
+      target_temp: '{{ state_attr(''climate.office_thermostat'', ''temperature'')
+        | float }}'
+      temp_diff: '{{ abs(target_temp - internal_temp) }}'
+      hvac_mode: '{{ ''heat'' if external_temp < internal_temp else ''cool'' }}'
+      preset_mode: '{{ ''boost'' if temp_diff > 5 else ''none'' }}'
+  - service: climate.set_temperature
+    target:
+      entity_id: climate.office_hvac_air_conditioner
+    data:
+      temperature: '{{ internal_temp + (target_temp - external_temp) }}'
+  - service: climate.set_hvac_mode
+    target:
+      entity_id: climate.office_hvac_air_conditioner
+    data:
+      hvac_mode: '{{ hvac_mode }}'
+  - service: climate.set_preset_mode
+    target:
+      entity_id: climate.office_hvac_air_conditioner
+    data:
+      preset_mode: '{{ preset_mode }}'
+- id: '1768199536019'
+  alias: Move heat on
+  description: Turn on when bedroom AC temp is 3°F or more above bedroom sensor
+  triggers:
+  - trigger: template
+    value_template: "{{ states('sensor.bedroom_temperature_2') | float(0) >=\n   states('sensor.bedroom_sensor_temperature')
+      | float(0) + 3 }}"
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: bb21fcfcc913e431866a0b4452166426
+    entity_id: 7b6575f5396e01f68bcab3e3a647afe9
+    domain: switch
+  mode: single
+- id: '1768200924978'
+  alias: Move heat off
+  description: Turn off when bedroom AC temp is less than 3°F above bedroom sensor
+  triggers:
+  - trigger: template
+    value_template: "{{ states('sensor.bedroom_temperature_2') | float(0) <\n   states('sensor.bedroom_sensor_temperature')
+      | float(0) + 3 }}"
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: bb21fcfcc913e431866a0b4452166426
+    entity_id: 7b6575f5396e01f68bcab3e3a647afe9
+    domain: switch
+  mode: single
+- id: '1738691576022'
+  alias: Office Dashboard Charging Controller
+  description: ''
+  use_blueprint:
+    path: homeassistant/custom/charging_controller.yaml
+    input:
+      battery_sensor: sensor.dashboard_1_battery_level
+      relay_switch: switch.wall_relays_dashboard_office
+- alias: Open Garage
+  trigger:
+  - platform: event
+    event_type: ios.action_fired
+    event_data:
+      actionName: Open Garage
+  action:
+  - service: button.press
+    entity_id: button.garage_open
+  id: bff775fb07d6453faca8c1ae17d1de8c
+- alias: Close Garage
+  trigger:
+  - platform: event
+    event_type: ios.action_fired
+    event_data:
+      actionName: Close Garage
+  action:
+  - service: button.press
+    entity_id: button.garage_close
+  id: 4c9f79703221427ba33cbc5f0fc2eb13
+- id: '1668582687707'
+  alias: Garage Door - Notify After Open
+  description: Will send notification if garage door is still open after 10 minutes.
+  trigger:
+  - platform: state
+    entity_id:
+    - cover.garage_door
+    from: closed
+    to: open
+    for:
+      hours: 0
+      minutes: 10
+      seconds: 0
+  condition: []
+  action:
+  - service: script.garage_door_notification
+    data: {}
+  mode: single
+- id: '1731171022698'
+  alias: Garage Is Open Notification
+  description: Sends notification when the garage door is opened.
+  triggers:
+  - type: opened
+    device_id: 3c622461c8c971b8b3332b5ed7b93996
+    entity_id: f39c322b59f9b934de12de865a7de3f5
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - action: notify.mobile_app_troys_iphone
+    metadata: {}
+    data:
+      message: Garage Door is Open
+      title: Garage Open
+  mode: single
+- id: '1731171259521'
+  alias: Garage Is Closed Notification
+  description: Sends notification when the garage door is opened.
+  triggers:
+  - type: not_opened
+    device_id: 3c622461c8c971b8b3332b5ed7b93996
+    entity_id: f39c322b59f9b934de12de865a7de3f5
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - action: notify.mobile_app_troys_iphone
+    metadata: {}
+    data:
+      message: Garage Door is Closed
+      title: Garage Open
+  mode: single
+- id: '1767591807025'
+  alias: Grow lights off
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - switch.tower_white_6000k
+    from:
+    - 'on'
+    to:
+    - 'off'
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    target:
+      entity_id: light.tower_grow_light_1_light_1
+    data:
+      brightness_pct: 100
+  - action: light.turn_off
+    metadata: {}
+    target:
+      entity_id:
+      - light.tower_grow_light_1_light_2
+      - light.tower_red
+      - light.tower_grow_light_1_light_3
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 30
+      seconds: 0
+      milliseconds: 0
+  - action: light.turn_off
+    metadata: {}
+    data: {}
+    target:
+      entity_id: light.tower_grow_light_1_light_1
+  mode: restart
+- id: '1767592963198'
+  alias: Grow lights on
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - switch.tower_white_6000k
+    from:
+    - 'off'
+    to:
+    - 'on'
+  conditions: []
+  actions:
+  - action: light.turn_on
+    metadata: {}
+    target:
+      entity_id:
+      - light.tower_grow_light_1_light_2
+      - light.tower_red
+      - light.tower_grow_light_1_light_3
+    data:
+      brightness_pct: 100
+  mode: single
+- id: '1738700800001'
+  alias: Grow Light Ceiling ON at 8am
+  description: Turn on grow light ceiling every day at 8:00 AM
+  triggers:
+  - trigger: time
+    at: 08:00:00
+  conditions: []
+  actions:
+  - action: switch.turn_on
+    target:
+      entity_id: switch.grow_light_ceiling
+    data: {}
+  mode: single
+- id: '1738700800002'
+  alias: Grow Light Ceiling OFF at midnight
+  description: Turn off grow light ceiling every day at midnight
+  triggers:
+  - trigger: time
+    at: 00:00:00
+  conditions: []
+  actions:
+  - action: switch.turn_off
+    target:
+      entity_id: switch.grow_light_ceiling
+    data: {}
+  mode: single
+- id: '1770090987001'
+  alias: Grow AC Daytime Cool
+  description: Set Grow AC to cool at 75°F with auto fan at 8 AM
+  triggers:
+  - trigger: time
+    at: 08:00:00
+  conditions: []
+  actions:
+  - action: climate.set_hvac_mode
+    target:
+      entity_id: climate.grow_ac
+    data:
+      hvac_mode: cool
+  - action: climate.set_temperature
+    target:
+      entity_id: climate.grow_ac
+    data:
+      temperature: 75
+  - action: climate.set_fan_mode
+    target:
+      entity_id: climate.grow_ac
+    data:
+      fan_mode: auto
+  mode: single
+- id: '1770090987002'
+  alias: Grow AC Nighttime Cool
+  description: Set Grow AC to cool at 62°F with auto fan at 10 PM
+  triggers:
+  - trigger: time
+    at: '22:00:00'
+  conditions: []
+  actions:
+  - action: climate.set_hvac_mode
+    target:
+      entity_id: climate.grow_ac
+    data:
+      hvac_mode: cool
+  - action: climate.set_temperature
+    target:
+      entity_id: climate.grow_ac
+    data:
+      temperature: 62
+  - action: climate.set_fan_mode
+    target:
+      entity_id: climate.grow_ac
+    data:
+      fan_mode: auto
+  mode: single
+- id: '1738700800010'
+  alias: Humidifier ON at 12:30 AM
+  description: Turn on humidifier via IR sequence with 1-second delays between commands
+  triggers:
+  - trigger: time
+    at: 00:30:00
+  conditions: []
+  actions:
+  - action: switch.turn_off
+    target:
+      entity_id: switch.humidifier_plug
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.humidifier_plug
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_power
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_increase
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_increase
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_increase
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_rh
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_rh
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_rh
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_rh
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 1
+      milliseconds: 0
+  - action: switch.turn_on
+    target:
+      entity_id: switch.h_rh
+    data: {}
+  mode: single
+- id: '1738700800011'
+  alias: Humidifier OFF at 8 AM
+  description: Turn off humidifier by cutting power to the plug
+  triggers:
+  - trigger: time
+    at: 08:00:00
+  conditions: []
+  actions:
+  - action: switch.turn_off
+    target:
+      entity_id: switch.humidifier_plug
+    data: {}
+  mode: single
+- id: '1731527092397'
+  alias: 'Turn Of Water Main: Leak Detected'
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.water_leak_sensors
+    from: 'off'
+    to: 'on'
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: 7a21e5e9a4ea32f768e202cd78699906
+    entity_id: 8580f6300053c81a971332367196801a
+    domain: switch
+  mode: single
+- id: '1750432162710'
+  alias: Watering Seed Front Yard MWFS
+  description: ''
+  use_blueprint:
+    path: homeassistant/watering_schedule.yaml
+    input:
+      valve_entity: switch.watering_valve_2
+      days_of_week:
+      - mon
+      - wed
+      - fri
+      - sat
+      - tue
+      - thu
+      - sun
+      times_of_day_select:
+      - 07:00:00
+      - 09:00:00
+      - '11:00:00'
+      - '13:00:00'
+      - '15:00:00'
+      - '17:00:00'
+      - '19:00:00'
+      - '21:00:00'
+      watering_duration: 10
+- id: '1750435179185'
+  alias: Watering Seed Back Yard SuTuThSa
+  description: ''
+  use_blueprint:
+    path: homeassistant/watering_schedule.yaml
+    input:
+      valve_entity: switch.sonoff_swv
+      days_of_week:
+      - sat
+      - tue
+      - thu
+      - sun
+      - mon
+      - wed
+      - fri
+      times_of_day_select:
+      - 07:00:00
+      - 09:00:00
+      - '11:00:00'
+      - '13:00:00'
+      - '15:00:00'
+      - '17:00:00'
+      - '19:00:00'
+      - '21:00:00'
+      - '13:30:00'
+      watering_duration: 10
