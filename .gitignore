@@ -18,6 +18,7 @@ home-assistant_v2.db*
 # Storage and Cache
 .storage/
 .cloud/
+.cache/
 tts/
 deps/
 .google.token
