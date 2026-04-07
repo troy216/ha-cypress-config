@@ -28,11 +28,17 @@ from .const import (
     DOMAIN,
     GRANT_TYPE_AUTHORIZATION_CODE,
     GRANT_TYPE_REFRESH_TOKEN,
+    GROUP_OWNER,
+    HA_GROUP_TO_OIDC_GROUP,
     MAX_TOKEN_ATTEMPTS,
     RATE_LIMIT_PENALTY,
     RATE_LIMIT_WINDOW,
     REFRESH_TOKEN_EXPIRY,
     RESPONSE_TYPE_CODE,
+    SCOPE_EMAIL,
+    SCOPE_GROUPS,
+    SCOPE_OPENID,
+    SCOPE_PROFILE,
     STORAGE_KEY_KEYS,
     STORAGE_VERSION,
     SUPPORTED_CODE_CHALLENGE_METHODS,
@@ -99,6 +105,29 @@ async def _load_or_generate_keys(hass: HomeAssistant) -> tuple[Any, str]:
     return private_key, kid
 
 
+def _resolve_user_groups(user: Any) -> list[str]:
+    """Resolve OIDC groups from a Home Assistant user."""
+    groups = []
+
+    if getattr(user, "is_owner", False):
+        groups.append(GROUP_OWNER)
+
+    for group in getattr(user, "groups", []):
+        oidc_group = HA_GROUP_TO_OIDC_GROUP.get(group.id)
+        if oidc_group:
+            groups.append(oidc_group)
+
+    return groups
+
+
+def _looks_like_email(value: str) -> bool:
+    """Check if a string looks like an email address."""
+    if not value or "@" not in value:
+        return False
+    local, _, domain = value.rpartition("@")
+    return bool(local) and "." in domain
+
+
 async def setup_http_endpoints(hass: HomeAssistant) -> None:
     """Set up the OIDC HTTP endpoints."""
     # Load or generate RSA key pair for JWT signing
@@ -115,6 +144,7 @@ async def setup_http_endpoints(hass: HomeAssistant) -> None:
     # Register views
     hass.http.register_view(OIDCDiscoveryView())
     hass.http.register_view(OAuth2AuthorizationServerMetadataView())
+    hass.http.register_view(OAuth2AuthorizationServerMetadataAlternateView())
     hass.http.register_view(OIDCAuthorizationView())
     hass.http.register_view(OIDCContinueView())
     hass.http.register_view(OIDCTokenView())
@@ -212,6 +242,8 @@ class OIDCDiscoveryView(HomeAssistantView):
                 "sub",
                 "name",
                 "email",
+                "email_verified",
+                "groups",
                 "iss",
                 "aud",
                 "exp",
@@ -228,6 +260,42 @@ class OAuth2AuthorizationServerMetadataView(HomeAssistantView):
 
     url = "/.well-known/oauth-authorization-server/oidc"
     name = "api:oauth:as-metadata"
+    requires_auth = False
+
+    async def get(self, request: web.Request) -> web.Response:
+        """Handle OAuth 2.0 Authorization Server Metadata request."""
+        base_url = get_issuer_from_request(request)
+
+        metadata = {
+            "issuer": base_url,
+            "authorization_endpoint": f"{base_url}/oidc/authorize",
+            "token_endpoint": f"{base_url}/oidc/token",
+            "registration_endpoint": f"{base_url}/oidc/register",
+            "jwks_uri": f"{base_url}/oidc/jwks",
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "token_endpoint_auth_methods_supported": [
+                "client_secret_post",
+                "client_secret_basic",
+            ],
+            "code_challenge_methods_supported": SUPPORTED_CODE_CHALLENGE_METHODS,
+            "scopes_supported": SUPPORTED_SCOPES,
+        }
+
+        return web.json_response(metadata)
+
+
+class OAuth2AuthorizationServerMetadataAlternateView(HomeAssistantView):
+    """OAuth 2.0 Authorization Server Metadata at alternate path.
+
+    Some clients append /.well-known/oauth-authorization-server to the
+    authorization server URL rather than inserting it after the authority
+    as RFC 8414 specifies. This view serves the same metadata at that
+    alternate location for compatibility.
+    """
+
+    url = "/oidc/.well-known/oauth-authorization-server"
+    name = "api:oauth:as-metadata-alt"
     requires_auth = False
 
     async def get(self, request: web.Request) -> web.Response:
@@ -278,6 +346,14 @@ class OIDCAuthorizationView(HomeAssistantView):
         # Validate parameters
         if not client_id or not redirect_uri or response_type != RESPONSE_TYPE_CODE:
             return web.Response(text="Invalid request", status=400)
+
+        # Validate that openid scope is present (required by OIDC Core Section 3.1.2.1)
+        requested_scopes = scope.split() if scope else []
+        if SCOPE_OPENID not in requested_scopes:
+            return web.Response(
+                text="The openid scope is required for OIDC requests.",
+                status=400,
+            )
 
         # Check if PKCE is required
         require_pkce = hass.data[DOMAIN].get(CONF_REQUIRE_PKCE, DEFAULT_REQUIRE_PKCE)
@@ -555,7 +631,7 @@ class OIDCTokenView(HomeAssistantView):
         client_id = auth_data["client_id"]
         scope = auth_data["scope"]
 
-        access_token = self._generate_access_token(_request, hass, user_id, scope, client_id)
+        access_token = await self._generate_access_token(_request, hass, user_id, scope, client_id)
         refresh_token = secrets.token_urlsafe(32)
 
         # Store refresh token
@@ -604,7 +680,7 @@ class OIDCTokenView(HomeAssistantView):
             return web.json_response({"error": "invalid_grant"}, status=400)
 
         # Generate new access token
-        access_token = self._generate_access_token(
+        access_token = await self._generate_access_token(
             _request, hass, token_data["user_id"], token_data["scope"], token_data["client_id"]
         )
 
@@ -617,7 +693,7 @@ class OIDCTokenView(HomeAssistantView):
             }
         )
 
-    def _generate_access_token(
+    async def _generate_access_token(
         self, request: web.Request, hass: HomeAssistant, user_id: str, scope: str, client_id: str
     ) -> str:
         """Generate JWT access token."""
@@ -634,6 +710,13 @@ class OIDCTokenView(HomeAssistantView):
             "aud": client_id,
             "scope": scope,
         }
+
+        # Include groups claim when the groups scope is requested
+        requested_scopes = scope.split() if scope else []
+        if SCOPE_GROUPS in requested_scopes:
+            user = await hass.auth.async_get_user(user_id)
+            if user:
+                payload["groups"] = _resolve_user_groups(user)
 
         private_key = hass.data[DOMAIN]["jwt_private_key"]
         kid = hass.data[DOMAIN]["jwt_kid"]
@@ -709,13 +792,27 @@ class OIDCUserInfoView(HomeAssistantView):
             if not user:
                 return web.json_response({"error": "user_not_found"}, status=404)
 
-            return web.json_response(
-                {
-                    "sub": user.id,
-                    "name": user.name,
-                    "email": user.id,  # HA doesn't store email, use ID as fallback
-                }
-            )
+            userinfo = {
+                "sub": user.id,
+            }
+
+            # Include claims based on requested scopes
+            token_scope = payload.get("scope", "")
+            requested_scopes = token_scope.split() if token_scope else []
+
+            if SCOPE_PROFILE in requested_scopes:
+                userinfo["name"] = user.name
+
+            if SCOPE_EMAIL in requested_scopes:
+                username = user.name or ""
+                if _looks_like_email(username):
+                    userinfo["email"] = username
+                    userinfo["email_verified"] = False
+
+            if SCOPE_GROUPS in requested_scopes:
+                userinfo["groups"] = _resolve_user_groups(user)
+
+            return web.json_response(userinfo)
         except jwt.ExpiredSignatureError:
             _LOGGER.error("Token expired")
             return web.json_response({"error": "token_expired"}, status=401)

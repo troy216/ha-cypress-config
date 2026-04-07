@@ -16,8 +16,27 @@ AUTHORIZATION_CODE_EXPIRY = 600  # 10 minutes
 SCOPE_OPENID = "openid"
 SCOPE_PROFILE = "profile"
 SCOPE_EMAIL = "email"
+SCOPE_GROUPS = "groups"
 
-SUPPORTED_SCOPES = [SCOPE_OPENID, SCOPE_PROFILE, SCOPE_EMAIL]
+SUPPORTED_SCOPES = [SCOPE_OPENID, SCOPE_PROFILE, SCOPE_EMAIL, SCOPE_GROUPS]
+
+# Home Assistant group IDs
+HA_GROUP_ID_ADMIN = "system-admin"
+HA_GROUP_ID_USER = "system-users"
+HA_GROUP_ID_READ_ONLY = "system-read-only"
+
+# OIDC group names
+GROUP_OWNER = "owner"
+GROUP_ADMIN = "admin"
+GROUP_USER = "user"
+GROUP_READ_ONLY = "read-only"
+
+# Mapping from HA group IDs to OIDC group names
+HA_GROUP_TO_OIDC_GROUP = {
+    HA_GROUP_ID_ADMIN: GROUP_ADMIN,
+    HA_GROUP_ID_USER: GROUP_USER,
+    HA_GROUP_ID_READ_ONLY: GROUP_READ_ONLY,
+}
 
 # Grant types
 GRANT_TYPE_AUTHORIZATION_CODE = "authorization_code"

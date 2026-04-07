@@ -17,12 +17,14 @@ def get_issuer_from_request(request: web.Request) -> str:
     Get the expected issuer URL from a request.
 
     Respects X-Forwarded headers if present (for reverse proxy setups).
+    Falls back to Home Assistant's configured external URL when headers
+    are absent, before using the raw request origin.
 
     Args:
         request: The aiohttp web request
 
     Returns:
-        The issuer URL (base URL + /oidc)
+        The base URL for this server
     """
     # Check for X-Forwarded headers (proxy setup)
     forwarded_proto = request.headers.get("X-Forwarded-Proto")
@@ -32,10 +34,32 @@ def get_issuer_from_request(request: web.Request) -> str:
         # Use forwarded headers from proxy
         base_url = f"{forwarded_proto}://{forwarded_host}"
     else:
-        # Direct connection, use request URL
-        base_url = str(request.url.origin())
+        # Try Home Assistant's configured external URL
+        external_url = _get_ha_external_url(request)
+        if external_url:
+            base_url = external_url.rstrip("/")
+        else:
+            # Direct connection, use request URL
+            base_url = str(request.url.origin())
 
     return base_url
+
+
+def _get_ha_external_url(request: web.Request) -> str | None:
+    """Try to get Home Assistant's configured external URL."""
+    try:
+        hass = request.app.get("hass")
+        if not hass:
+            return None
+
+        from homeassistant.helpers.network import get_url
+
+        if not isinstance(hass, HomeAssistant):
+            return None
+
+        return get_url(hass, allow_internal=False, prefer_external=True)
+    except Exception:
+        return None
 
 
 def validate_access_token(
