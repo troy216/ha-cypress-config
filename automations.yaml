@@ -1,111 +1,132 @@
-- id: '1770100000001'
-  alias: 'Battery: Scheduled Charge Cycle'
-  description: 'Charges FLA batteries on Tue/Fri at 8 AM. Stops when the ratio
-    of two consecutive 5-minute current windows exceeds 0.98, indicating the
-    charging curve has flattened and batteries are at equilibrium with the 13.3V
-    charger. Minimum 15 minutes allows the sensor to accumulate data. Maximum
-    48h is a safety cutoff.
-
-    '
-  use_blueprint:
-    path: homeassistant/custom/battery_charge_cycle.yaml
-    input:
-      charger_switch: switch.zp_garage_outlet
-      flatness_sensor: sensor.battery_charge_complete
-      schedule_days:
-      - tue
-      - fri
-      start_time: 08:00:00
-      min_charge_minutes: 15
-      max_charge_hours: 48
-      flatness_ratio: 0.98
-      min_current_floor: 0.5
-      notify_service: notify.mobile_app_troys_iphone
+- id: '1770100000010'
+  alias: 'Battery: Charge Cycle'
+  description: >
+    Unified charge cycle for FLA marine batteries. Triggers on schedule
+    (Tue/Fri 8 AM), manual switch-on, or HA restart with switch already on.
+    Monitors charger current via time-based rolling windows (growing from
+    0 to 30 min). Stops when ratio > 0.98 (curve flat) or after 48h max.
+    Independent watchdog provides 50h safety cutoff.
+  mode: single
+  triggers:
+    - trigger: time
+      at: '08:00:00'
+      id: scheduled
+    - trigger: state
+      entity_id: switch.zp_garage_outlet
+      to: 'on'
+      id: manual
+    - trigger: homeassistant
+      event: start
+      id: ha_restart
+  conditions:
+    - condition: or
+      conditions:
+        - condition: and
+          conditions:
+            - condition: trigger
+              id: scheduled
+            - condition: template
+              value_template: "{{ now().strftime('%a') | lower in ['tue', 'fri'] }}"
+            - condition: state
+              entity_id: switch.zp_garage_outlet
+              state: 'off'
+        - condition: trigger
+          id: manual
+        - condition: and
+          conditions:
+            - condition: trigger
+              id: ha_restart
+            - condition: state
+              entity_id: switch.zp_garage_outlet
+              state: 'on'
+  variables:
+    charge_start_ts: "{{ as_timestamp(now()) }}"
+    flatness_ratio: 0.98
+    max_charge_hours: 48
+    min_current_floor: 0.5
+  actions:
+    - if:
+        - condition: trigger
+          id: scheduled
+      then:
+        - action: switch.turn_on
+          target:
+            entity_id: switch.zp_garage_outlet
+    - action: notify.mobile_app_troys_iphone
+      data:
+        title: Battery Charger
+        message: >-
+          Charge started ({{ trigger.id }}).
+          Current: {{ states('sensor.zp_garage_current') }}A.
+    - repeat:
+        sequence:
+          - delay:
+              minutes: 5
+          - if:
+              - condition: state
+                entity_id: switch.zp_garage_outlet
+                state: 'off'
+            then:
+              - action: notify.mobile_app_troys_iphone
+                data:
+                  title: Battery Charger
+                  message: >-
+                    Charge interrupted after
+                    {{ ((as_timestamp(now()) - charge_start_ts) / 60) | round(0) }} min.
+                    Outlet turned off manually.
+              - stop: Outlet turned off externally
+        until:
+          - condition: template
+            value_template: >-
+              {% set ratio = states('sensor.battery_charge_complete') | float(0) %}
+              {% set avg = state_attr('sensor.battery_charge_complete', 'recent_avg') | float(0) %}
+              {% set available = states('sensor.battery_charge_complete') not in ['unknown', 'unavailable'] %}
+              {% set elapsed_h = (as_timestamp(now()) - charge_start_ts) / 3600 %}
+              {{ (available and ratio > flatness_ratio and avg > min_current_floor)
+                 or elapsed_h >= max_charge_hours }}
+    - action: switch.turn_off
+      target:
+        entity_id: switch.zp_garage_outlet
+    - variables:
+        fin_min: "{{ ((as_timestamp(now()) - charge_start_ts) / 60) | round(0) }}"
+        fin_ratio: "{{ states('sensor.battery_charge_complete') }}"
+        fin_current: "{{ state_attr('sensor.battery_charge_complete', 'recent_avg') }}"
+        fin_window: "{{ state_attr('sensor.battery_charge_complete', 'window_size_minutes') }}"
+        safety_cut: "{{ ((as_timestamp(now()) - charge_start_ts) / 3600) >= max_charge_hours }}"
+    - action: notify.mobile_app_troys_iphone
+      data:
+        title: Battery Charger
+        message: >-
+          {% if safety_cut %}
+            SAFETY CUTOFF: {{ (fin_min | float / 60) | round(1) }}h elapsed.
+            Current: {{ fin_current }}A, Ratio: {{ fin_ratio }},
+            Window: {{ fin_window }}min.
+          {% else %}
+            Charge complete: {{ fin_min }}min
+            ({{ (fin_min | float / 60) | round(1) }}h).
+            Current: {{ fin_current }}A, Ratio: {{ fin_ratio }},
+            Window: {{ fin_window }}min.
+          {% endif %}
 - id: '1770100000002'
   alias: 'Battery: Charge Safety Watchdog'
-  description: 'Independent safety net. If the outlet has been on continuously
+  description: >
+    Independent safety net. If the outlet has been on continuously
     for 50 hours, something went wrong. Turn off and alert.
-
-    '
   triggers:
-  - trigger: state
-    entity_id:
-    - switch.zp_garage_outlet
-    to:
-    - 'on'
-    for:
-      hours: 50
-      minutes: 0
-      seconds: 0
+    - trigger: state
+      entity_id: switch.zp_garage_outlet
+      to: 'on'
+      for:
+        hours: 50
   conditions: []
   actions:
-  - action: switch.turn_off
-    target:
-      entity_id: switch.zp_garage_outlet
-  - action: notify.mobile_app_troys_iphone
-    data:
-      title: Battery Charger - WATCHDOG
-      message: Outlet was on for 50+ hours. Turned off as safety measure.
-  mode: single
-- id: '1770100000003'
-  alias: 'Battery: HA Restart Recovery'
-  description: 'If HA restarts while a charge cycle is in progress, the main
-    automation''s repeat loop dies but the outlet stays on. This automation
-    triggers on HA start, waits 15 minutes for the flatness sensor to populate,
-    then monitors every 5 minutes. If the curve is flat, it turns off the outlet.
-    If not, it continues until flat or the watchdog takes over.
-
-    '
-  triggers:
-  - trigger: homeassistant
-    event: start
-  conditions:
-  - condition: state
-    entity_id: switch.zp_garage_outlet
-    state: 'on'
-  actions:
-  - action: notify.mobile_app_troys_iphone
-    data:
-      title: Battery Charger
-      message: >
-        HA restarted while charger was on. Monitoring will resume after
-        flatness sensor populates (~15 minutes).
-  - delay:
-      minutes: 15
-  - condition: state
-    entity_id: switch.zp_garage_outlet
-    state: 'on'
-  - repeat:
-      sequence:
-      - delay:
-          minutes: 5
-      - condition: state
+    - action: switch.turn_off
+      target:
         entity_id: switch.zp_garage_outlet
-        state: 'on'
-      until:
-      - condition: template
-        value_template: >-
-          {% set ratio = states('sensor.battery_charge_complete') %}
-          {% set current_avg = state_attr('sensor.battery_charge_complete', 'current_avg') | float(0) %}
-          {% set available = ratio not in ['unknown', 'unavailable'] %}
-          {% if available %}
-            {{ (ratio | float(0)) > 0.98 and current_avg > 0.5 }}
-          {% else %}
-            {{ false }}
-          {% endif %}
-  - condition: state
-    entity_id: switch.zp_garage_outlet
-    state: 'on'
-  - action: switch.turn_off
-    target:
-      entity_id: switch.zp_garage_outlet
-  - action: notify.mobile_app_troys_iphone
-    data:
-      title: Battery Charger
-      message: >-
-        Post-restart recovery complete. Charger turned off -- current curve
-        was flat. Current avg: {{ state_attr('sensor.battery_charge_complete', 'current_avg') }}A,
-        Ratio: {{ states('sensor.battery_charge_complete') }}.
+    - action: notify.mobile_app_troys_iphone
+      data:
+        title: Battery Charger - WATCHDOG
+        message: Outlet was on for 50+ hours. Turned off as safety measure.
   mode: single
 - id: '1732294050048'
   alias: Office HVAC Update
