@@ -592,3 +592,43 @@
       - '21:00:00'
       - '13:30:00'
       watering_duration: 10
+- id: '1780600000001'
+  alias: 'System: CPU Temperature Alert'
+  description: Alert when CPU temperature exceeds safe threshold
+  mode: single
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.cpu_temperature
+      above: 75
+      for:
+        seconds: 30
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "CPU Temperature Warning"
+        message: "CPU temperature is {{ states('sensor.cpu_temperature') }}°C - check ventilation!"
+        notification_id: cpu_temp_warning
+    - action: notify.notify
+      data:
+        title: "HA Server Overheating"
+        message: "CPU temperature is {{ states('sensor.cpu_temperature') }}°C"
+- id: '1780600000002'
+  alias: 'System: CPU Temperature Critical'
+  description: Critical alert when CPU temperature is dangerously high
+  mode: single
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.cpu_temperature
+      above: 85
+      for:
+        seconds: 10
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "CRITICAL: CPU Overheating!"
+        message: "CPU temperature is {{ states('sensor.cpu_temperature') }}°C - IMMEDIATE ACTION REQUIRED!"
+        notification_id: cpu_temp_critical
+    - action: notify.notify
+      data:
+        title: "CRITICAL: HA Server Overheating!"
+        message: "CPU at {{ states('sensor.cpu_temperature') }}°C - shutdown imminent if not cooled!"
