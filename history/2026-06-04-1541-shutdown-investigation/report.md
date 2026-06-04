@@ -89,7 +89,13 @@ Hardware-level thermal shutdown triggered by BIOS (invisible to OS due to broken
 ### 4. Applied Disk APM Fix
 - Set APM to 254 on running system
 - Disabled standby timer
-- User advised to add to SSH add-on init_commands for persistence
+
+### 5. Configured SSH Add-on init_commands
+- Updated SSH add-on options via Supervisor API
+- Added `/config/scripts/set_disk_apm.sh` to run at startup
+- Added cron job for temperature publishing every minute
+- Add-on restarted to apply changes
+- Verified: `sensor.cpu_temperature` now active and reporting
 
 ## Key Decisions
 
@@ -138,12 +144,7 @@ Hardware-level thermal shutdown triggered by BIOS (invisible to OS due to broken
 ### For User
 1. **Clean laptop cooling system** - Remove dust from fans and heatsinks
 2. **Consider replacing thermal paste** - Original paste likely dried out
-3. **Add init_commands to SSH add-on** for persistent APM and temp monitoring:
-   ```yaml
-   init_commands:
-     - /config/scripts/set_disk_apm.sh
-     - "(crontab -l 2>/dev/null | grep -v publish_temps; echo '* * * * * /config/scripts/publish_temps.sh > /dev/null 2>&1') | crontab - && crond"
-   ```
+3. ~~**Add init_commands to SSH add-on**~~ - **DONE** (configured via Supervisor API)
 4. **Consider hardware upgrade** - ThinkPad T440 is 10+ years old; a mini PC or NUC would be more reliable for 24/7 operation
 5. **Watch for recurrence** - If shutdown happens again, note time and circumstances
 
