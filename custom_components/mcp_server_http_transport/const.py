@@ -5,3 +5,9 @@ DOMAIN = "mcp_server_http_transport"
 # MCP Server configuration
 DEFAULT_PORT = 8080
 DEFAULT_HOST = "0.0.0.0"
+
+# Authentication configuration
+CONF_NATIVE_AUTH = "native_auth_enabled"
+
+# Feature flags
+CONF_CONFIG_FILE_ACCESS = "config_file_access_enabled"

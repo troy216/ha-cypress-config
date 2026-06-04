@@ -8,14 +8,48 @@ from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 from mcp.server import Server
 
-from custom_components.oidc_provider.token_validator import get_issuer_from_request
-
 from .completions import complete
+from .const import DOMAIN
 from .prompts import get_prompt, get_prompts
 from .resources import get_resources, read_resource
 from .tools import call_tool, get_tool_schemas
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _integration_loaded(hass: HomeAssistant) -> bool:
+    """Return True when the config entry is active.
+
+    HA's HTTP stack has no public way to unregister a view, so registered
+    views survive `async_unload_entry`. async_unload_entry clears
+    `hass.data[DOMAIN]`, so we gate requests on it being populated — when
+    the user disables the integration, requests return 503 immediately
+    instead of continuing to succeed until the next HA restart (#37).
+    """
+    return bool(hass.data.get(DOMAIN))
+
+
+def _service_unavailable() -> web.Response:
+    """Build a 503 response for requests made while the integration is disabled."""
+    return web.json_response(
+        {
+            "error": "service_unavailable",
+            "error_description": "MCP Server integration is disabled",
+        },
+        status=503,
+    )
+
+
+def _get_issuer(request: web.Request) -> str | None:
+    """Get the OIDC issuer URL from the request, or None if unavailable."""
+    try:
+        from custom_components.oidc_provider.token_validator import (
+            get_issuer_from_request,
+        )
+
+        return get_issuer_from_request(request)
+    except ImportError:
+        return None
 
 
 def _get_protected_resource_metadata(base_url: str) -> dict[str, Any]:
@@ -36,9 +70,17 @@ class MCPProtectedResourceMetadataView(HomeAssistantView):
     name = "api:mcp:metadata:root"
     requires_auth = False
 
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the metadata view."""
+        self.hass = hass
+
     async def get(self, request: web.Request) -> web.Response:
         """Return protected resource metadata."""
-        base_url = get_issuer_from_request(request)
+        if not _integration_loaded(self.hass):
+            return _service_unavailable()
+        base_url = _get_issuer(request)
+        if base_url is None:
+            return web.json_response({"error": "OIDC provider not available"}, status=404)
         metadata = _get_protected_resource_metadata(base_url)
         return web.json_response(metadata)
 
@@ -50,9 +92,17 @@ class MCPSubpathProtectedResourceMetadataView(HomeAssistantView):
     name = "api:mcp:metadata:mcp"
     requires_auth = False
 
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the metadata view."""
+        self.hass = hass
+
     async def get(self, request: web.Request) -> web.Response:
         """Return protected resource metadata with /mcp suffix."""
-        base_url = get_issuer_from_request(request)
+        if not _integration_loaded(self.hass):
+            return _service_unavailable()
+        base_url = _get_issuer(request)
+        if base_url is None:
+            return web.json_response({"error": "OIDC provider not available"}, status=404)
         metadata = _get_protected_resource_metadata(base_url)
         return web.json_response(metadata)
 
@@ -64,51 +114,72 @@ class MCPEndpointView(HomeAssistantView):
     name = "api:mcp"
     requires_auth = False
 
-    def __init__(self, hass: HomeAssistant, server: Server) -> None:
+    def __init__(
+        self, hass: HomeAssistant, server: Server, native_auth_enabled: bool = False
+    ) -> None:
         """Initialize the MCP endpoint."""
         self.hass = hass
         self.server = server
+        self.native_auth_enabled = native_auth_enabled
 
-    def _validate_token(self, request: web.Request) -> dict[str, Any] | None:
-        """Validate the OAuth bearer token."""
+    async def _validate_token(self, request: web.Request) -> dict[str, Any] | None:
+        """Validate the bearer token via OIDC (if available) then native HA auth."""
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             return None
 
         token = auth_header[7:]  # Remove "Bearer " prefix
 
-        # Import dynamically to avoid circular dependency
+        # 1. Try OIDC first
         try:
             from custom_components.oidc_provider.token_validator import (
                 get_issuer_from_request,
                 validate_access_token,
             )
 
-            # Get the expected issuer from the request
             expected_issuer = get_issuer_from_request(request)
-
-            return validate_access_token(self.hass, token, expected_issuer)
+            result = validate_access_token(self.hass, token, expected_issuer)
+            if result is not None:
+                return result
         except ImportError as e:
-            _LOGGER.error("OIDC provider integration not found: %s", e)
-            return None
+            _LOGGER.debug("OIDC provider not available: %s", e)
+
+        # 2. Fall back to native HA auth (Long-Lived Access Tokens)
+        if self.native_auth_enabled:
+            refresh_token = self.hass.auth.async_validate_access_token(token)
+            if refresh_token is not None:
+                return {"sub": refresh_token.user.id}
+
+        return None
 
     async def post(self, request: web.Request) -> web.Response:
         """Handle POST requests for MCP messages."""
-        # Validate OAuth token
-        token_payload = self._validate_token(request)
+        if not _integration_loaded(self.hass):
+            return _service_unavailable()
+
+        # Validate token
+        token_payload = await self._validate_token(request)
         if not token_payload:
-            base_url = get_issuer_from_request(request)
-            # Point to protected resource metadata (RFC 9728)
-            resource_metadata_url = f"{base_url}/.well-known/oauth-protected-resource/api/mcp"
-            www_authenticate = (
-                f'Bearer realm="MCP Server", resource_metadata="{resource_metadata_url}"'
-            )
+            # Build WWW-Authenticate header
+            base_url = _get_issuer(request)
+            if base_url is not None:
+                resource_metadata_url = f"{base_url}/.well-known/oauth-protected-resource/api/mcp"
+                www_authenticate = (
+                    f'Bearer realm="MCP Server",' f' resource_metadata="{resource_metadata_url}"'
+                )
+            else:
+                www_authenticate = 'Bearer realm="Home Assistant MCP Server"'
+
             return web.json_response(
-                {"error": "invalid_token", "error_description": "Invalid or missing token"},
+                {
+                    "error": "invalid_token",
+                    "error_description": "Invalid or missing token",
+                },
                 status=401,
                 headers={"WWW-Authenticate": www_authenticate},
             )
 
+        body = None
         try:
             # Parse JSON-RPC message
             body = await request.json()
@@ -129,7 +200,10 @@ class MCPEndpointView(HomeAssistantView):
             return web.json_response(
                 {
                     "jsonrpc": "2.0",
-                    "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
+                    "error": {
+                        "code": -32603,
+                        "message": f"Internal error: {str(e)}",
+                    },
                     "id": body.get("id") if isinstance(body, dict) else None,
                 },
                 status=500,
@@ -235,7 +309,10 @@ class MCPEndpointView(HomeAssistantView):
         if msg_id is not None:
             return {
                 "jsonrpc": "2.0",
-                "error": {"code": -32601, "message": f"Method not found: {method}"},
+                "error": {
+                    "code": -32601,
+                    "message": f"Method not found: {method}",
+                },
                 "id": msg_id,
             }
 

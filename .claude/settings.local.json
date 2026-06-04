@@ -14,7 +14,8 @@
       "WebFetch(domain:developer.chrome.com)",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:chromedevtools.github.io)",
-      "WebFetch(domain:www.home-assistant.io)"
+      "WebFetch(domain:www.home-assistant.io)",
+      "WebFetch(domain:support.lenovo.com)"
     ]
   },
   "disabledMcpjsonServers": [

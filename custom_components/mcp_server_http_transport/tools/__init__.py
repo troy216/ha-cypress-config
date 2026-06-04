@@ -4,6 +4,8 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 
+from ..json_utils import _HAJSONEncoder  # noqa: F401
+
 # Tool registry: name -> {"schema": {...}, "handler": callable}
 TOOLS: dict[str, dict[str, Any]] = {}
 
@@ -39,4 +41,13 @@ async def call_tool(hass: HomeAssistant, name: str, arguments: dict[str, Any]) -
 
 
 # Import submodules so tools auto-register via @register_tool
-from . import config, dashboards, entities, statistics, system, system_admin  # noqa: F401, E402
+from . import (  # noqa: E402
+    config,  # noqa: F401
+    config_files,  # noqa: F401
+    dashboards,  # noqa: F401
+    entities,  # noqa: F401
+    helpers,  # noqa: F401
+    statistics,  # noqa: F401
+    system,  # noqa: F401
+    system_admin,  # noqa: F401
+)

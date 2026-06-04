@@ -10,9 +10,18 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import label_registry as lr
 
-from . import register_tool
+from . import _HAJSONEncoder, register_tool
 
 _LOGGER = logging.getLogger(__name__)
+
+_HAS_GET_ENTITY_ALIASES = hasattr(er, "async_get_entity_aliases")
+
+
+def _get_aliases(hass: HomeAssistant, entry: er.RegistryEntry) -> list[str]:
+    """Get entity aliases, handling ComputedNameType on HA 2026.4+."""
+    if _HAS_GET_ENTITY_ALIASES:
+        return er.async_get_entity_aliases(hass, entry)
+    return sorted(str(a) for a in entry.aliases) if entry.aliases else []
 
 
 @register_tool(
@@ -48,7 +57,7 @@ async def get_state(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[str,
 
     registry = er.async_get(hass)
     entry = registry.async_get(entity_id)
-    aliases = sorted(entry.aliases) if entry and entry.aliases else []
+    aliases = _get_aliases(hass, entry) if entry else []
 
     attributes = dict(state.attributes)
     if fields is not None:
@@ -63,7 +72,7 @@ async def get_state(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[str,
         "last_updated": state.last_updated.isoformat(),
     }
 
-    return {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
+    return {"content": [{"type": "text", "text": json.dumps(result, indent=2, cls=_HAJSONEncoder)}]}
 
 
 @register_tool(
@@ -159,7 +168,7 @@ async def list_entities(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[
         if domain_filter and not state.entity_id.startswith(f"{domain_filter}."):
             continue
         entry = registry.async_get(state.entity_id)
-        aliases = sorted(entry.aliases) if entry and entry.aliases else []
+        aliases = _get_aliases(hass, entry) if entry else []
 
         if fields is not None:
             full = {
@@ -191,7 +200,9 @@ async def list_entities(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[
             }
         entities.append(entity)
 
-    return {"content": [{"type": "text", "text": json.dumps(entities, indent=2)}]}
+    return {
+        "content": [{"type": "text", "text": json.dumps(entities, indent=2, cls=_HAJSONEncoder)}]
+    }
 
 
 @register_tool(
@@ -214,7 +225,7 @@ async def list_areas(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[str
         for area in registry.async_list_areas()
     ]
 
-    return {"content": [{"type": "text", "text": json.dumps(areas, indent=2)}]}
+    return {"content": [{"type": "text", "text": json.dumps(areas, indent=2, cls=_HAJSONEncoder)}]}
 
 
 @register_tool(
@@ -250,7 +261,9 @@ async def list_devices(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[s
             }
         )
 
-    return {"content": [{"type": "text", "text": json.dumps(devices, indent=2)}]}
+    return {
+        "content": [{"type": "text", "text": json.dumps(devices, indent=2, cls=_HAJSONEncoder)}]
+    }
 
 
 @register_tool(
@@ -279,7 +292,7 @@ async def list_services(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[
     for domain, domain_services in services.items():
         result[domain] = list(domain_services.keys())
 
-    return {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
+    return {"content": [{"type": "text", "text": json.dumps(result, indent=2, cls=_HAJSONEncoder)}]}
 
 
 @register_tool(
@@ -350,7 +363,7 @@ async def search_entities(hass: HomeAssistant, arguments: dict[str, Any]) -> dic
                 continue
 
         entry = entity_registry.async_get(state.entity_id)
-        aliases = sorted(entry.aliases) if entry and entry.aliases else []
+        aliases = _get_aliases(hass, entry) if entry else []
 
         # Resolve area: entity's own area, falling back to its device's area
         entity_area = entry.area_id if entry else None
@@ -385,7 +398,9 @@ async def search_entities(hass: HomeAssistant, arguments: dict[str, Any]) -> dic
         if len(entities) >= limit:
             break
 
-    return {"content": [{"type": "text", "text": json.dumps(entities, indent=2)}]}
+    return {
+        "content": [{"type": "text", "text": json.dumps(entities, indent=2, cls=_HAJSONEncoder)}]
+    }
 
 
 @register_tool(
@@ -413,7 +428,7 @@ async def list_labels(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[st
         for label in registry.async_list_labels()
     ]
 
-    return {"content": [{"type": "text", "text": json.dumps(labels, indent=2)}]}
+    return {"content": [{"type": "text", "text": json.dumps(labels, indent=2, cls=_HAJSONEncoder)}]}
 
 
 @register_tool(
@@ -429,7 +444,15 @@ async def list_labels(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[st
                 "type": "array",
                 "items": {"type": "string"},
                 "description": "List of entity IDs to get state for (max 50)",
-            }
+            },
+            "fields": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": (
+                    "Limit which attribute keys are included in each entity's response "
+                    "(e.g., ['brightness', 'color_temp']). Omit for all attributes"
+                ),
+            },
         },
         "required": ["entity_ids"],
     },
@@ -437,6 +460,7 @@ async def list_labels(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[st
 async def batch_get_state(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[str, Any]:
     """Get state for multiple entities."""
     entity_ids = arguments["entity_ids"]
+    fields = arguments.get("fields")
 
     if len(entity_ids) > 50:
         return {"content": [{"type": "text", "text": "Error: maximum 50 entity IDs per request"}]}
@@ -450,17 +474,23 @@ async def batch_get_state(hass: HomeAssistant, arguments: dict[str, Any]) -> dic
             continue
 
         entry = registry.async_get(entity_id)
-        aliases = sorted(entry.aliases) if entry and entry.aliases else []
+        aliases = _get_aliases(hass, entry) if entry else []
+
+        attributes = dict(state.attributes)
+        if fields is not None:
+            attributes = {k: v for k, v in attributes.items() if k in fields}
 
         results.append(
             {
                 "entity_id": state.entity_id,
                 "state": state.state,
-                "attributes": dict(state.attributes),
+                "attributes": attributes,
                 "aliases": aliases,
                 "last_changed": state.last_changed.isoformat(),
                 "last_updated": state.last_updated.isoformat(),
             }
         )
 
-    return {"content": [{"type": "text", "text": json.dumps(results, indent=2)}]}
+    return {
+        "content": [{"type": "text", "text": json.dumps(results, indent=2, cls=_HAJSONEncoder)}]
+    }

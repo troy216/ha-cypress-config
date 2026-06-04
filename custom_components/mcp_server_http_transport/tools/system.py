@@ -5,10 +5,11 @@ import logging
 from datetime import datetime as dt
 from typing import Any
 
+from homeassistant.const import __version__ as HA_VERSION
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from . import register_tool
+from . import _HAJSONEncoder, register_tool
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,13 +32,13 @@ async def get_config(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[str
         "elevation": config.elevation,
         "unit_system": config.units.as_dict(),
         "time_zone": str(config.time_zone),
-        "version": config.version,
+        "version": HA_VERSION,
         "currency": config.currency,
         "country": config.country,
         "language": config.language,
     }
 
-    return {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
+    return {"content": [{"type": "text", "text": json.dumps(result, indent=2, cls=_HAJSONEncoder)}]}
 
 
 @register_tool(
@@ -123,7 +124,9 @@ async def get_history(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[st
                     "attributes": dict(state.attributes),
                 }
             )
-        return {"content": [{"type": "text", "text": json.dumps(history, indent=2)}]}
+        return {
+            "content": [{"type": "text", "text": json.dumps(history, indent=2, cls=_HAJSONEncoder)}]
+        }
     except Exception as e:
         _LOGGER.error("Error getting history: %s", e)
         return {"content": [{"type": "text", "text": f"Error getting history: {str(e)}"}]}
@@ -242,7 +245,9 @@ async def get_logbook(hass: HomeAssistant, arguments: dict[str, Any]) -> dict[st
             processor.get_events, start_time, end_time
         )
 
-        return {"content": [{"type": "text", "text": json.dumps(events, indent=2)}]}
+        return {
+            "content": [{"type": "text", "text": json.dumps(events, indent=2, cls=_HAJSONEncoder)}]
+        }
     except Exception as e:
         _LOGGER.error("Error getting logbook: %s", e)
         return {"content": [{"type": "text", "text": f"Error getting logbook: {str(e)}"}]}
