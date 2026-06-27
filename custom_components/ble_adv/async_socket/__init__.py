@@ -21,6 +21,46 @@ TUNNEL_SOCKET_FILE_VAR = "TUNNEL_SOCKET_FILE"
 _LOGGER = logging.getLogger(__name__)
 
 
+async def async_socket_recv(sock: socket.socket, nbbytes: int) -> bytes:
+    """Receive from a non-blocking socket, treating a stuck-readable fd as a hangup.
+
+    Mirrors asyncio loop.sock_recv (optimistic recv, then wait for the selector to
+    report readable) but raises BrokenPipeError when a fd the selector DID report
+    readable still yields EAGAIN. That happens when the controller is reset out from
+    under us by another stack sharing the adapter (host bluetoothd toggling power, or a
+    desktop logout emitting a mgmt NEW_SETTINGS event): the fd stays readable forever
+    while recv() returns EAGAIN. loop.sock_recv() silently re-arms its reader on that
+    EAGAIN and spins one core at 100% CPU; raising lets the recv loop reconnect instead.
+    """
+    try:
+        return sock.recv(nbbytes)
+    except (BlockingIOError, InterruptedError):
+        pass  # no data yet / EINTR: wait for the selector to report readable
+    loop = asyncio.get_running_loop()
+    fut: asyncio.Future = loop.create_future()
+    fd = sock.fileno()
+
+    def _on_readable() -> None:
+        if fut.done():
+            return
+        try:
+            data = sock.recv(nbbytes)
+        except InterruptedError:
+            return  # transient: let the reader re-fire and retry
+        except BlockingIOError:
+            fut.set_exception(BrokenPipeError("HCI socket hung up (stuck-readable EAGAIN; adapter reset)"))
+        except Exception as exc:
+            fut.set_exception(exc)
+        else:
+            fut.set_result(data)
+
+    loop.add_reader(fd, _on_readable)
+    try:
+        return await fut
+    finally:
+        loop.remove_reader(fd)
+
+
 class AsyncSocketBase(ABC):
     """Base Async Socket."""
 
@@ -151,7 +191,7 @@ class AsyncSocket(AsyncSocketBase):
         """Receive Data from socket."""
         if self._socket is None:
             return None, False
-        data = await asyncio.get_event_loop().sock_recv(self._socket, 4096)
+        data = await async_socket_recv(self._socket, 4096)
         return data, len(data) > 0
 
     def _call_done(self, future: asyncio.Future) -> None:
