@@ -43,7 +43,7 @@
     charge_start_ts: "{{ as_timestamp(now()) }}"
     flatness_ratio: 0.98
     max_charge_hours: 48
-    min_current_floor: 0.5
+    drop_threshold: 0.80
   actions:
     - if:
         - condition: trigger
@@ -80,9 +80,11 @@
             value_template: >-
               {% set ratio = states('sensor.battery_charge_complete') | float(0) %}
               {% set avg = state_attr('sensor.battery_charge_complete', 'recent_avg') | float(0) %}
+              {% set sc = state_attr('sensor.battery_charge_complete', 'starting_current') | float(0) %}
               {% set available = states('sensor.battery_charge_complete') not in ['unknown', 'unavailable'] %}
               {% set elapsed_h = (as_timestamp(now()) - charge_start_ts) / 3600 %}
-              {{ (available and ratio > flatness_ratio and avg > min_current_floor)
+              {% set dropped = sc > 0 and avg <= sc * drop_threshold %}
+              {{ (available and ratio > flatness_ratio and dropped)
                  or elapsed_h >= max_charge_hours }}
     - action: switch.turn_off
       target:
@@ -92,6 +94,10 @@
         fin_ratio: "{{ states('sensor.battery_charge_complete') }}"
         fin_current: "{{ state_attr('sensor.battery_charge_complete', 'recent_avg') }}"
         fin_window: "{{ state_attr('sensor.battery_charge_complete', 'window_size_minutes') }}"
+        fin_sc: "{{ state_attr('sensor.battery_charge_complete', 'starting_current') }}"
+        fin_drop: >-
+          {{ (state_attr('sensor.battery_charge_complete', 'recent_avg') | float(0)
+              / (state_attr('sensor.battery_charge_complete', 'starting_current') | float(1))) | round(2) }}
         safety_cut: "{{ ((as_timestamp(now()) - charge_start_ts) / 3600) >= max_charge_hours }}"
     - action: notify.mobile_app_troys_iphone
       data:
@@ -100,12 +106,12 @@
           {% if safety_cut %}
             SAFETY CUTOFF: {{ (fin_min | float / 60) | round(1) }}h elapsed.
             Current: {{ fin_current }}A, Ratio: {{ fin_ratio }},
-            Window: {{ fin_window }}min.
+            Window: {{ fin_window }}min. Start: {{ fin_sc }}A (C/SC {{ fin_drop }}).
           {% else %}
             Charge complete: {{ fin_min }}min
             ({{ (fin_min | float / 60) | round(1) }}h).
             Current: {{ fin_current }}A, Ratio: {{ fin_ratio }},
-            Window: {{ fin_window }}min.
+            Window: {{ fin_window }}min. Start: {{ fin_sc }}A (C/SC {{ fin_drop }}).
           {% endif %}
 - id: '1770100000002'
   alias: 'Battery: Charge Safety Watchdog'
