@@ -146,33 +146,21 @@
           {% endif %}
           {{ (ns.sum / ns.count) | round(3) if ns.count > 0 else 0 }}
 
-        # Startup peak (SC): peak of a ~40s rolling mean during the first 120s,
-        # then latched for the rest of the cycle. Rolling mean rejects the
-        # sub-second inrush spike; MAX captures the true startup bulk even if a
-        # nearly-full battery starts tapering immediately. Resets when off.
+        # Startup peak (SC): running max of the raw current reading during the
+        # first 120s, then latched for the rest of the cycle. Captures the true
+        # startup peak even when a full battery tapers immediately. Resets when off.
         starting_current: >-
           {% set now_ts = as_timestamp(now()) %}
           {% set switch_on = is_state('switch.zp_garage_outlet', 'on') %}
           {% set start = this.attributes.charge_start_ts | default(0) | float(0) %}
           {% set prev_sc = this.attributes.starting_current | default(0) | float(0) %}
+          {% set reading = states('sensor.zp_garage_current') | float(none) %}
           {% if not switch_on or start == 0 %}
             {{ 0 }}
           {% elif (now_ts - start) > 120 %}
             {{ prev_sc | round(3) }}
+          {% elif reading is not none %}
+            {{ [prev_sc, reading] | max | round(3) }}
           {% else %}
-            {% set roll_start = now_ts - 40 %}
-            {% set reading = states('sensor.zp_garage_current') | float(none) %}
-            {% set ns = namespace(sum=0.0, count=0) %}
-            {% for s in this.attributes.samples | default([], true) %}
-              {% if s[0] >= roll_start %}
-                {% set ns.sum = ns.sum + s[1] %}
-                {% set ns.count = ns.count + 1 %}
-              {% endif %}
-            {% endfor %}
-            {% if reading is not none %}
-              {% set ns.sum = ns.sum + reading %}
-              {% set ns.count = ns.count + 1 %}
-            {% endif %}
-            {% set roll_avg = (ns.sum / ns.count) if ns.count > 0 else 0 %}
-            {{ [prev_sc, roll_avg] | max | round(3) }}
+            {{ prev_sc | round(3) }}
           {% endif %}

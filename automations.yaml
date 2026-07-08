@@ -41,7 +41,7 @@
               state: 'on'
   variables:
     charge_start_ts: "{{ as_timestamp(now()) }}"
-    flatness_ratio: 0.98
+    flatness_ratio: 0.96
     max_charge_hours: 48
     drop_threshold: 0.80
   actions:

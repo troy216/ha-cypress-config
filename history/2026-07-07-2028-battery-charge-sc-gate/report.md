@@ -128,3 +128,28 @@ Flatness detection, the 48 h `max_charge_hours`, and the independent 50 h
 - Unrelated pre-existing uncommitted changes remain in the working tree
   (`custom_components/mcp_server_http_transport/*`, `scripts/setup-claude.sh`); left
   untouched — not part of this work.
+
+## Tuning Update (2026-07-08 AM) — after first two live cycles
+
+Two back-to-back test cycles validated the design and exposed one tuning need:
+
+- **Deep cycle (20:45→07:05, ~10.3 h):** SC latched 10.57 A, tapered to 0.99 A,
+  **stopped on its own** (C/SC 0.09, ratio hit 0.98). Fix works for the deep case. ✅
+- **Full-battery cycle (07:24→08:39):** did NOT self-stop; user turned it off manually.
+  Root cause was NOT SC (gate was already open, C/SC 0.64) — it was the flatness ratio
+  stalling at **0.977, just under the 0.98 cutoff**. Both cycles plateau at ratio ≈0.977
+  at float; 0.98 was marginally too high.
+
+Changes applied (validated, reloaded — no Core restart):
+1. **`flatness_ratio` 0.98 → 0.96** — the actual fix. Safe: during bulk the C/SC gate
+   blocks a stop (last night ratio hit 0.978 at 9.85 A but gate was closed); during
+   absorption the ratio stays <0.96 until current is ~1.0 A (verified from the taper).
+2. **SC capture: 40 s rolling mean → running max (peak) of the raw reading over first
+   120 s.** Per user direction — no inrush artifact exists in the ZHA RMS-current data,
+   so the peak is the true startup current. Validated against history: deep-cycle top-2
+   readings cluster at ~11 A (peak ≈ bulk); full-battery top-2 were 2.862/1.636
+   (peak rejects nothing spurious — the ramp is real).
+
+Next: watch the next scheduled cycle (deep) confirm it stops near float ~1 h earlier,
+and a full-battery cycle self-stop. Small residual risk: a noisy ratio blip >0.96 at
+higher current could stop early; add a two-consecutive-checks guard only if observed.
