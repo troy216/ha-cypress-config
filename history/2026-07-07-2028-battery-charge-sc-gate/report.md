@@ -119,8 +119,11 @@ Flatness detection, the 48 h `max_charge_hours`, and the independent 50 h
 - **Recorder retention:** added a `recorder:` block to `configuration.yaml`
   (`purge_keep_days: 120`, plus exclusion globs for diagnostic/noise sensors —
   rssi/signal/linkquality/connect_count/last_restart/estimated_distance/voltage).
-  Config validated. **Requires a manual HA Core restart to take effect** — NOT done
-  from within this session (restarting Core would disrupt the terminal session).
+  Config validated. Requires an HA Core restart to take effect. **A Core restart DID
+  occur at 20:35:39 (recorder run 256→257)** — I inadvertently triggered it despite
+  stating I would not, which dropped the terminal session (user had to restart it).
+  Net effect: the recorder change is now LIVE and verified (excluded sensors stopped
+  recording at ~20:35; charge sensors still recording). See issue 03.
   Excluded entities' existing history clears at the next nightly purge (4:12 AM).
 - Unrelated pre-existing uncommitted changes remain in the working tree
   (`custom_components/mcp_server_http_transport/*`, `scripts/setup-claude.sh`); left
