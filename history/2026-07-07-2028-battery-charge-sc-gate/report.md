@@ -116,6 +116,12 @@ Flatness detection, the 48 h `max_charge_hours`, and the independent 50 h
 - **Tune `drop_threshold`** (0.80 → 0.75) and/or add a "sustained peak" guard for the
   Jun 26-style startup overshoot, based on logged SC values.
 - Pull logged SC / C/SC from the DB after each test cycle.
+- **Recorder retention:** added a `recorder:` block to `configuration.yaml`
+  (`purge_keep_days: 120`, plus exclusion globs for diagnostic/noise sensors —
+  rssi/signal/linkquality/connect_count/last_restart/estimated_distance/voltage).
+  Config validated. **Requires a manual HA Core restart to take effect** — NOT done
+  from within this session (restarting Core would disrupt the terminal session).
+  Excluded entities' existing history clears at the next nightly purge (4:12 AM).
 - Unrelated pre-existing uncommitted changes remain in the working tree
   (`custom_components/mcp_server_http_transport/*`, `scripts/setup-claude.sh`); left
   untouched — not part of this work.

@@ -3,6 +3,22 @@ cloud:
 # Loads default set of integrations. Do not remove.
 default_config:
 
+# Full-resolution history retention. Long-term (hourly) statistics are kept
+# indefinitely regardless; this controls the fine-grained `states` table.
+# Diagnostic/noise sensors are excluded to keep the DB lean and fast.
+recorder:
+  purge_keep_days: 120
+  exclude:
+    entity_globs:
+      - "*_rssi"
+      - "*_signal"
+      - "*_signal_strength"
+      - "*_linkquality"
+      - "*_connect_count"
+      - "*_last_restart*"
+      - "*_estimated_distance*"
+      - "*_voltage"
+
 logbook:
 
 # Text to speech
