@@ -1,5 +1,6 @@
 """Token validation helper for OIDC provider."""
 
+import ipaddress
 import logging
 from typing import Any
 
@@ -35,13 +36,24 @@ def _describe_token(token: str) -> str:
     return " ".join(parts)
 
 
+def _is_ip_host(host: str) -> bool:
+    """Return True when host (optionally host:port) is a bare IP address."""
+    bare = host.rsplit(":", 1)[0] if ":" in host and not host.endswith("]") else host
+    try:
+        ipaddress.ip_address(bare.strip("[]"))
+    except ValueError:
+        return False
+    return True
+
+
 def get_issuer_from_request(request: web.Request) -> str:
     """
     Get the expected issuer URL from a request.
 
-    Respects X-Forwarded headers if present (for reverse proxy setups).
-    Falls back to Home Assistant's configured external URL when headers
-    are absent, before using the raw request origin.
+    Resolution order: a domain host from X-Forwarded-Host or Host wins
+    (for reverse proxy setups). When the host is missing or a bare IP
+    address, Home Assistant's configured external URL is preferred,
+    followed by the IP host and finally the raw request origin.
 
     Args:
         request: The aiohttp web request
@@ -57,14 +69,20 @@ def get_issuer_from_request(request: web.Request) -> str:
     host = request.headers.get("X-Forwarded-Host") or request.headers.get("Host")
     proto = request.headers.get("X-Forwarded-Proto") or request.url.scheme
 
-    if host:
+    if host and not _is_ip_host(host):
         return f"{proto}://{host}"
 
-    # No usable host header: fall back to HA's configured external URL, then the
-    # raw request origin.
+    # The host is missing or is an IP address. Some proxies (e.g. Keenetic)
+    # rewrite Host to the internal IP without setting X-Forwarded-Host, which
+    # would leak the internal address into the issuer and endpoint metadata.
+    # Prefer HA's configured external URL in that case; keep the IP host as a
+    # fallback so LAN-only installs without an external URL keep working.
     external_url = _get_ha_external_url(request)
     if external_url:
         return external_url.rstrip("/")
+
+    if host:
+        return f"{proto}://{host}"
 
     return str(request.url.origin())
 
