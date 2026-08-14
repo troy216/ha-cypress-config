@@ -4,8 +4,8 @@
     Unified charge cycle for FLA marine batteries. Triggers on schedule
     (Tue/Fri 8 AM), manual switch-on, or HA restart with switch already on.
     Monitors charger current via time-based rolling windows (growing from
-    0 to 30 min). Stops when ratio > 0.98 (curve flat) or after 48h max.
-    Independent watchdog provides 50h safety cutoff.
+    0 to 30 min). Stops when flatness > 0.97 AND current dropped to 70% of
+    startup peak, or after 48h max. Independent watchdog provides 50h safety cutoff.
   mode: single
   triggers:
     - trigger: time
@@ -41,9 +41,9 @@
               state: 'on'
   variables:
     charge_start_ts: "{{ as_timestamp(now()) }}"
-    flatness_ratio: 0.96
+    flatness_ratio: 0.97
     max_charge_hours: 48
-    drop_threshold: 0.80
+    drop_threshold: 0.70
   actions:
     - if:
         - condition: trigger
