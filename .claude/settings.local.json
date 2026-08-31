@@ -17,7 +17,9 @@
       "WebFetch(domain:www.home-assistant.io)",
       "WebFetch(domain:support.lenovo.com)",
       "WebFetch(domain:home.cielowigle.com)",
-      "WebFetch(domain:support.cielowigle.com)"
+      "WebFetch(domain:support.cielowigle.com)",
+      "WebFetch(domain:discourse.nodered.org)",
+      "WebFetch(domain:nodered.org)"
     ]
   },
   "disabledMcpjsonServers": [
